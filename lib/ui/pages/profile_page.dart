@@ -81,13 +81,13 @@ class ProfilePageState extends State<ProfilePage> with SingleTickerProviderState
                   child: CircleAvatar(
                     radius: 50,
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: Icon(Icons.person, size: 50, color: Theme.of(context).colorScheme.onPrimary),
+                    backgroundImage: NetworkImage('https://pbs.twimg.com/profile_images/1769695630052503553/F7EmXKP2_400x400.jpg'),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              Center(child: Text('Gamer Profile', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24))),
-              Center(child: Text('Level ${gameManager.totalGames} Player', style: Theme.of(context).textTheme.bodyMedium)),
+              Center(child: Text('LoreHunter', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24))),
+              Center(child: Text('Uncovering the hidden gems lost in the backlog', style: Theme.of(context).textTheme.bodyMedium)),
               const SizedBox(height: 20),
               _buildProfileCard(context, 'Total Games', gameManager.totalGames.toString(), Icons.videogame_asset_rounded, () => _navigateToMyList('All')),
               _buildProfileCard(context, 'Hours Played', '${gameManager.totalGames * 25}h', Icons.timer_rounded, () => _showPlaytimeDetails(context, gameManager.totalGames)),
@@ -134,18 +134,18 @@ class ProfilePageState extends State<ProfilePage> with SingleTickerProviderState
   }
 
   void _showEditProfile(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Edit profile coming soon! 👤'), backgroundColor: Theme.of(context).colorScheme.primary, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Edit profile coming soon!'), backgroundColor: Theme.of(context).colorScheme.primary, behavior: SnackBarBehavior.floating));
   }
 
   void _showPlaytimeDetails(BuildContext context, int totalGames) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${totalGames * 25} hours total playtime! ⏱️'), backgroundColor: const Color(0xFF10B981), behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${totalGames * 25} hours total playtime!'), backgroundColor: const Color(0xFF10B981), behavior: SnackBarBehavior.floating));
   }
 
   void _showRatingBreakdown(BuildContext context, double avgRating) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Average rating: ${avgRating.toStringAsFixed(1)}/10 ⭐'), backgroundColor: const Color(0xFFF59E0B), behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Average rating: ${avgRating.toStringAsFixed(1)}/10'), backgroundColor: const Color(0xFFF59E0B), behavior: SnackBarBehavior.floating));
   }
 
   void _showPlatforms(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PS5, PS4, Xbox, Switch, PC 🎮'), backgroundColor: Colors.blue, behavior: SnackBarBehavior.floating));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PS5, PS4, Xbox, Switch, PC'), backgroundColor: Colors.blue, behavior: SnackBarBehavior.floating));
   }
 }

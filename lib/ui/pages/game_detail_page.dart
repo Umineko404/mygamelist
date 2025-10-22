@@ -16,6 +16,8 @@ class _GameDetailPageState extends State<GameDetailPage> {
     return Consumer<GameManager>(
       builder: (context, gameManager, child) {
         final currentGame = gameManager.getGameByTitle(widget.game.title)!;
+        final isPlanToPlay = currentGame.status == 'Plan to Play';
+
         return Scaffold(
           appBar: AppBar(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -44,7 +46,7 @@ class _GameDetailPageState extends State<GameDetailPage> {
               IconButton(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Share ${currentGame.title}!'), backgroundColor: Theme.of(context).colorScheme.primary),
+                    SnackBar(content: Text('Share feature coming soon!'), backgroundColor: Theme.of(context).colorScheme.primary),
                   );
                 },
                 icon: Icon(Icons.share_rounded, color: Theme.of(context).textTheme.bodyLarge?.color),
@@ -84,33 +86,34 @@ class _GameDetailPageState extends State<GameDetailPage> {
                           const SizedBox(height: 8),
                           Text(currentGame.genre, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 16)),
                           const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(12)),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
-                                    const SizedBox(width: 6),
-                                    Text(currentGame.rating.toStringAsFixed(1), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18)),
-                                  ],
+                          if (!isPlanToPlay)
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(12)),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
+                                      const SizedBox(width: 6),
+                                      Text(currentGame.rating.toStringAsFixed(1), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18)),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(color: _getStatusColor(currentGame.status).withAlpha(51), borderRadius: BorderRadius.circular(12)),
-                                child: Text(currentGame.status, style: TextStyle(color: _getStatusColor(currentGame.status), fontSize: 14, fontWeight: FontWeight.w600)),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(width: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(color: _getStatusColor(currentGame.status).withAlpha(51), borderRadius: BorderRadius.circular(12)),
+                                  child: Text(currentGame.status, style: TextStyle(color: _getStatusColor(currentGame.status), fontSize: 14, fontWeight: FontWeight.w600)),
+                                ),
+                              ],
+                            ),
                           const SizedBox(height: 24),
                           Row(
                             children: [
                               Expanded(child: _buildInfoCard('Platform', currentGame.platform, Icons.devices_rounded)),
                               const SizedBox(width: 12),
-                              Expanded(child: _buildInfoCard('Released', currentGame.releaseDate, Icons.calendar_today_rounded)),
+                              Expanded(child: _buildInfoCard(isPlanToPlay ? 'Releases' : 'Released', currentGame.releaseDate, Icons.calendar_today_rounded)),
                             ],
                           ),
                           const SizedBox(height: 24),
@@ -124,17 +127,18 @@ class _GameDetailPageState extends State<GameDetailPage> {
                   ),
                 ],
               ),
-              Positioned(
-                bottom: 20,
-                right: 20,
-                child: FloatingActionButton.extended(
-                  onPressed: () => _showAddGameDialog(context, gameManager, currentGame),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Update Game'),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              if (!isPlanToPlay)
+                Positioned(
+                  bottom: 20,
+                  right: 20,
+                  child: FloatingActionButton.extended(
+                    onPressed: () => _showAddGameDialog(context, gameManager, currentGame),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Update Game'),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  ),
                 ),
-              ),
             ],
           ),
         );
@@ -204,18 +208,26 @@ class _GameDetailPageState extends State<GameDetailPage> {
                   Wrap(
                     spacing: 10,
                     children: ['Playing', 'Completed', 'Plan to Play'].map((status) {
+                      final bool isEnabled = game.status != 'Plan to Play' || status == 'Plan to Play';
                       return ChoiceChip(
                         label: Text(status),
                         selected: tempStatus == status,
                         selectedColor: _getStatusColor(status).withAlpha(204),
-                        labelStyle: TextStyle(color: tempStatus == status ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color),
-                        onSelected: (selected) {
+                        disabledColor: Theme.of(context).cardColor.withValues(alpha: 0.5),
+                        labelStyle: TextStyle(
+                          color: isEnabled
+                              ? (tempStatus == status ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color)
+                              : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
+                        ),
+                        onSelected: isEnabled
+                            ? (selected) {
                           setState(() {
                             if (selected) {
                               tempStatus = status;
                             }
                           });
-                        },
+                        }
+                            : null,
                       );
                     }).toList(),
                   ),

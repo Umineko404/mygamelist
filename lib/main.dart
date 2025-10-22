@@ -30,7 +30,7 @@ class MyGameListApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeManager.themeMode,
-          themeAnimationDuration: const Duration(milliseconds: 750),
+          themeAnimationDuration: const Duration(milliseconds: 0),
           themeAnimationCurve: Curves.easeInOut,
           home: const HomePage(),
         );

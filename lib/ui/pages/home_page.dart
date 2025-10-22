@@ -357,7 +357,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _showNotifications(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('No new notifications! 🎮'),
+        content: const Text('No new notifications!'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

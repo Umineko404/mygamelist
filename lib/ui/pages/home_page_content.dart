@@ -21,7 +21,7 @@ class HomePageContent extends StatelessWidget {
                   );
                 }
                 final itemIndex = index ~/ 2;
-                return _buildUnifiedNewsCard(context, sampleNews[itemIndex]);
+                return NewsCard(news: sampleNews[itemIndex]);
               },
               childCount: sampleNews.length * 2 - 1,
             ),
@@ -30,73 +30,96 @@ class HomePageContent extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildUnifiedNewsCard(BuildContext context, Map<String, dynamic> news) {
-    return GestureDetector(
-      onTap: () => _showNewsDetail(context, news),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        color: Theme.of(context).cardColor,
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 35,
-              backgroundImage: NetworkImage(news['imageUrl']),
+class NewsCard extends StatelessWidget {
+  final Map<String, dynamic> news;
+
+  const NewsCard({
+    super.key,
+    required this.news,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Theme.of(context).cardColor,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 35,
+            backgroundImage: NetworkImage(news['imageUrl']),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  news['title'],
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _getCategoryIcon(),
+                    const SizedBox(width: 8),
+                    Text(
+                      news['source'],
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.circle,
+                        size: 4, color: Colors.grey.withAlpha(128)),
+                    const SizedBox(width: 8),
+                    Text(
+                      news['date'],
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  news['description'],
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(news['title'], maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(news['date'], style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13)),
-                ],
+          ),
+          const SizedBox(width: 12),
+          Column(
+            children: [
+              Icon(
+                Icons.bookmark_border,
+                color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.6),
+                size: 22,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 12),
+              Icon(
+                Icons.share_outlined,
+                color: Theme.of(context).iconTheme.color?.withValues(alpha:0.6),
+                size: 22,
+              ),
+            ],
+          )
+        ],
       ),
     );
   }
 
-  void _showNewsDetail(BuildContext context, Map<String, dynamic> news) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(news['title'], style: Theme.of(context).textTheme.titleLarge),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(news['description'], style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(news['source'], style: TextStyle(color: Theme.of(context).colorScheme.onPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
-                ),
-                const Spacer(),
-                Text(news['date'], style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Read More', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+  Widget _getCategoryIcon() {
+    return Icon(Icons.article, size: 16, color: Colors.grey[600]);
   }
 }
