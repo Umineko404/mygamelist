@@ -68,32 +68,26 @@ class NewsCard extends StatelessWidget {
                   children: [
                     _getCategoryIcon(),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              news['source'],
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(Icons.circle,
-                              size: 4, color: Colors.grey.withAlpha(128)),
-                          const SizedBox(width: 8),
-                          Text(
-                            news['date'],
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(fontSize: 13),
-                          ),
-                        ],
+                    Flexible(
+                      child: Text(
+                        news['source'],
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(Icons.circle,
+                        size: 4, color: Colors.grey.withAlpha(128)),
+                    const SizedBox(width: 8),
+                    Text(
+                      news['date'],
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(fontSize: 13),
                     ),
                   ],
                 ),
