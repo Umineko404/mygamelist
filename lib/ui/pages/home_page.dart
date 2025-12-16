@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../managers/theme_manager.dart';
+import '../../services/auth_service.dart';
 import 'home_page_content.dart';
 import 'discover_page.dart';
 import 'discussions_page.dart';
@@ -22,7 +23,6 @@ class _HomePageState extends State<HomePage>
   late AnimationController _animationController;
   late Animation<double> _animation;
   bool _isSidebarOpen = false;
-  final bool _isLoggedIn = false;
 
   @override
   void initState() {
@@ -115,28 +115,26 @@ class _HomePageState extends State<HomePage>
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: _toggleSidebar,
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Theme.of(context).dividerColor,
-              child: _isLoggedIn
-                  ? const ClipOval(
-                      child: Image(
-                        image: NetworkImage(
-                          'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-                        ),
-                        fit: BoxFit.cover,
-                        width: 36,
-                        height: 36,
-                      ),
-                    )
-                  : Icon(
-                      Icons.person,
-                      size: 20,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
+          Consumer<AuthService>(
+            builder: (context, authService, child) {
+              final displayName = authService.displayName ?? authService.userEmail ?? 'U';
+              final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+              return GestureDetector(
+                onTap: _toggleSidebar,
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
-            ),
+                  ),
+                ),
+              );
+            },
           ),
           const Spacer(),
           Text(
@@ -251,50 +249,55 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'MGL',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.black,
+              child: Consumer<AuthService>(
+                builder: (context, authService, child) {
+                  final displayName = authService.displayName ?? 'User';
+                  final email = authService.userEmail ?? '';
+                  final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        radius: 25,
+                        backgroundColor: Colors.white,
+                        child: Text(
+                          initial,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            color: Color(0xFF4A7FD5),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        displayName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Log in',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'or create an account',
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(230),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+                      const SizedBox(height: 4),
+                      Text(
+                        email,
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(230),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             _buildSidebarItem('Settings', Icons.settings, () {
               _toggleSidebar();
               _showSettingsDialog(context);
+            }),
+            _buildSidebarItem('Sign Out', Icons.logout, () {
+              _toggleSidebar();
+              context.read<AuthService>().signOut();
             }),
           ],
         ),

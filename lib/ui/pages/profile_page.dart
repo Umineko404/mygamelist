@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../managers/game_manager.dart';
+import '../../services/auth_service.dart';
 import '../widgets/my_list_tab.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -70,6 +71,11 @@ class ProfilePageState extends State<ProfilePage>
 
   Widget _buildProfileStatsPage(BuildContext context) {
     final gameManager = Provider.of<GameManager>(context);
+    final authService = Provider.of<AuthService>(context);
+    final displayName = authService.displayName ?? 'User';
+    final email = authService.userEmail ?? '';
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -82,8 +88,13 @@ class ProfilePageState extends State<ProfilePage>
                   child: CircleAvatar(
                     radius: 50,
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    backgroundImage: NetworkImage(
-                      'https://pbs.twimg.com/profile_images/1769695630052503553/F7EmXKP2_400x400.jpg',
+                    child: Text(
+                      initial,
+                      style: const TextStyle(
+                        fontSize: 40,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -91,7 +102,7 @@ class ProfilePageState extends State<ProfilePage>
               const SizedBox(height: 16),
               Center(
                 child: Text(
-                  'LoreHunter',
+                  displayName,
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontSize: 24),
@@ -99,7 +110,7 @@ class ProfilePageState extends State<ProfilePage>
               ),
               Center(
                 child: Text(
-                  'Uncovering the hidden gems lost in the backlog',
+                  email,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
