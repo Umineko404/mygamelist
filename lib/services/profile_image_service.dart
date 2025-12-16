@@ -40,7 +40,8 @@ class ProfileImageService extends ChangeNotifier {
     }
   }
 
-  /// Returns a stream of the profile image base64 string.
+  /// Returns a broadcast stream of the profile image base64 string.
+  /// Using asBroadcastStream() to allow multiple listeners.
   Stream<String?> profileImageStream() {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
@@ -52,7 +53,31 @@ class ProfileImageService extends ChangeNotifier {
         return event.snapshot.value as String;
       }
       return null;
-    });
+    }).asBroadcastStream();
+  }
+
+  /// Returns a stream of profile image for a specific user ID.
+  Stream<String?> profileImageStreamForUser(String userId) {
+    return _db.child('users/$userId/profileImage').onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        return event.snapshot.value as String;
+      }
+      return null;
+    }).asBroadcastStream();
+  }
+
+  /// Gets profile image for a specific user (one-time fetch).
+  Future<String?> getProfileImageForUser(String userId) async {
+    try {
+      final snapshot = await _db.child('users/$userId/profileImage').get();
+      if (snapshot.exists && snapshot.value != null) {
+        return snapshot.value as String;
+      }
+    } catch (e) {
+      debugPrint(
+          'ProfileImageService: Error getting image for user $userId: $e');
+    }
+    return null;
   }
 
   /// Gets the current profile image URL (base64 string).
@@ -75,7 +100,7 @@ class ProfileImageService extends ChangeNotifier {
   Future<bool> pickAndUploadImage(ImageSource source) async {
     try {
       debugPrint('ProfileImageService: Attempting to pick image from $source');
-      
+
       final XFile? image = await _picker.pickImage(
         source: source,
         maxWidth: 512,
@@ -84,7 +109,8 @@ class ProfileImageService extends ChangeNotifier {
       );
 
       if (image == null) {
-        debugPrint('ProfileImageService: No image selected (user cancelled or permission denied)');
+        debugPrint(
+            'ProfileImageService: No image selected (user cancelled or permission denied)');
         return false;
       }
 

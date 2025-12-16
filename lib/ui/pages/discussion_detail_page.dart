@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 import '../../models/discussion_model.dart';
 import '../../services/discussion_service.dart';
+import '../../services/profile_image_service.dart';
 
 class DiscussionDetailPage extends StatefulWidget {
   final Discussion discussion;
@@ -17,6 +20,7 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
   final TextEditingController _commentController = TextEditingController();
   final Map<String, TextEditingController> _replyControllers = {};
   final Set<String> _expandedReplies = {};
+  late ProfileImageService _profileImageService;
 
   @override
   void dispose() {
@@ -25,6 +29,13 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _profileImageService =
+        Provider.of<ProfileImageService>(context, listen: false);
   }
 
   Future<void> _addComment() async {
@@ -140,10 +151,12 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
                         const SizedBox(height: 12),
                         Text(
                           widget.discussion.title,
-                          style:
-                              Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                         const SizedBox(height: 12),
                         Text(
@@ -153,20 +166,11 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            CircleAvatar(
+                            _UserAvatar(
+                              userId: widget.discussion.authorId,
+                              userName: widget.discussion.authorName,
                               radius: 16,
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                              child: Text(
-                                widget.discussion.authorName.isNotEmpty
-                                    ? widget.discussion.authorName[0]
-                                        .toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                              profileImageService: _profileImageService,
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -201,7 +205,8 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
                     ),
                   ),
                   StreamBuilder<List<Comment>>(
-                    stream: _discussionService.getComments(widget.discussion.id),
+                    stream:
+                        _discussionService.getComments(widget.discussion.id),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
@@ -261,6 +266,7 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
                             replyController: _getReplyController(comment.id),
                             onSubmitReply: () => _addReply(comment.id),
                             discussionService: _discussionService,
+                            profileImageService: _profileImageService,
                           );
                         },
                       );
@@ -291,20 +297,12 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
             ),
             child: Row(
               children: [
-                CircleAvatar(
+                _UserAvatar(
+                  userId: currentUser?.uid ?? '',
+                  userName:
+                      currentUser?.displayName ?? currentUser?.email ?? '',
                   radius: 18,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Text(
-                    currentUser?.displayName?.isNotEmpty == true
-                        ? currentUser!.displayName![0].toUpperCase()
-                        : currentUser?.email?.isNotEmpty == true
-                            ? currentUser!.email![0].toUpperCase()
-                            : '?',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  profileImageService: _profileImageService,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -353,6 +351,7 @@ class _CommentWidget extends StatefulWidget {
   final TextEditingController replyController;
   final VoidCallback onSubmitReply;
   final DiscussionService discussionService;
+  final ProfileImageService profileImageService;
 
   const _CommentWidget({
     required this.comment,
@@ -362,6 +361,7 @@ class _CommentWidget extends StatefulWidget {
     required this.replyController,
     required this.onSubmitReply,
     required this.discussionService,
+    required this.profileImageService,
   });
 
   @override
@@ -400,19 +400,11 @@ class _CommentWidgetState extends State<_CommentWidget> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
+              _UserAvatar(
+                userId: widget.comment.authorId,
+                userName: widget.comment.authorName,
                 radius: 18,
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                child: Text(
-                  widget.comment.authorName.isNotEmpty
-                      ? widget.comment.authorName[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
+                profileImageService: widget.profileImageService,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -535,7 +527,8 @@ class _CommentWidgetState extends State<_CommentWidget> {
                   const SizedBox(height: 12),
                   // Replies list
                   StreamBuilder<List<Comment>>(
-                    stream: widget.discussionService.getReplies(widget.comment.id),
+                    stream:
+                        widget.discussionService.getReplies(widget.comment.id),
                     builder: (context, snapshot) {
                       final replies = snapshot.data ?? [];
 
@@ -559,24 +552,19 @@ class _CommentWidgetState extends State<_CommentWidget> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                CircleAvatar(
+                                _UserAvatar(
+                                  userId: reply.authorId,
+                                  userName: reply.authorName,
                                   radius: 14,
-                                  backgroundColor: Colors.grey.shade600,
-                                  child: Text(
-                                    reply.authorName.isNotEmpty
-                                        ? reply.authorName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                    ),
-                                  ),
+                                  fontSize: 11,
+                                  profileImageService:
+                                      widget.profileImageService,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
                                         children: [
@@ -605,8 +593,9 @@ class _CommentWidgetState extends State<_CommentWidget> {
                                       const SizedBox(height: 2),
                                       Text(
                                         reply.content,
-                                        style:
-                                            Theme.of(context).textTheme.bodySmall,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
                                       ),
                                     ],
                                   ),
@@ -629,6 +618,70 @@ class _CommentWidgetState extends State<_CommentWidget> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A widget that displays a user's avatar with their profile image if available,
+/// or falls back to showing their initial.
+class _UserAvatar extends StatelessWidget {
+  final String userId;
+  final String userName;
+  final double radius;
+  final double? fontSize;
+  final ProfileImageService profileImageService;
+
+  const _UserAvatar({
+    required this.userId,
+    required this.userName,
+    required this.radius,
+    required this.profileImageService,
+    this.fontSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+    final textSize = fontSize ?? (radius * 0.8);
+
+    if (userId.isEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        child: Text(
+          initial,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: textSize,
+          ),
+        ),
+      );
+    }
+
+    return FutureBuilder<String?>(
+      future: profileImageService.getProfileImageForUser(userId),
+      builder: (context, snapshot) {
+        final imageData = snapshot.data;
+
+        return CircleAvatar(
+          radius: radius,
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          backgroundImage: imageData != null && imageData.isNotEmpty
+              ? MemoryImage(base64Decode(imageData))
+              : null,
+          child: imageData == null || imageData.isEmpty
+              ? Text(
+                  initial,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: textSize,
+                  ),
+                )
+              : null,
+        );
+      },
     );
   }
 }
