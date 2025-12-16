@@ -27,12 +27,23 @@ class FirebaseService {
       if (data == null) return <Game>[];
 
       try {
-        final gamesMap = data as Map<dynamic, dynamic>;
-        final games = gamesMap.entries.map((e) {
-          final gameData = e.value as Map<dynamic, dynamic>;
-          final json = gameData.cast<String, dynamic>();
-          return Game.fromJson(json);
-        }).toList();
+        final List<Game> games = [];
+        
+        if (data is Map) {
+          final gamesMap = data;
+          for (final entry in gamesMap.entries) {
+            try {
+              final gameData = entry.value;
+              if (gameData is Map) {
+                final json = _convertToStringDynamicMap(gameData);
+                games.add(Game.fromJson(json));
+              }
+            } catch (e) {
+              debugPrint('FirebaseService: Error parsing game ${entry.key}: $e');
+            }
+          }
+        }
+        
         debugPrint('FirebaseService: Parsed ${games.length} games');
         return games;
       } catch (e) {
@@ -40,6 +51,34 @@ class FirebaseService {
         return <Game>[];
       }
     });
+  }
+
+  /// Recursively converts a dynamic map to Map with String keys
+  Map<String, dynamic> _convertToStringDynamicMap(dynamic data) {
+    if (data is Map) {
+      return data.map((key, value) {
+        if (value is Map) {
+          return MapEntry(key.toString(), _convertToStringDynamicMap(value));
+        } else if (value is List) {
+          return MapEntry(key.toString(), _convertList(value));
+        } else {
+          return MapEntry(key.toString(), value);
+        }
+      });
+    }
+    return {};
+  }
+
+  /// Converts a list, handling nested maps
+  List<dynamic> _convertList(List<dynamic> list) {
+    return list.map((item) {
+      if (item is Map) {
+        return _convertToStringDynamicMap(item);
+      } else if (item is List) {
+        return _convertList(item);
+      }
+      return item;
+    }).toList();
   }
 
   /// Saves a game to user's library.

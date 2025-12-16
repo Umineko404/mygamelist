@@ -95,40 +95,74 @@ class Game {
   }
 
   factory Game.fromJson(Map<String, dynamic> json) {
-    String getGenres(List<dynamic>? genres) {
-      if (genres == null || genres.isEmpty) return 'Unknown';
-      return genres.take(3).map((g) => g['name'].toString()).join(', ');
+    // Helper to convert Firebase map-with-numeric-keys back to List
+    List<dynamic> ensureList(dynamic value) {
+      if (value == null) return [];
+      if (value is List) return value;
+      if (value is Map) {
+        // Firebase converts lists to maps with numeric string keys
+        return value.values.toList();
+      }
+      return [];
     }
 
-    String getPlatforms(List<dynamic>? platforms) {
-      if (platforms == null || platforms.isEmpty) return 'Unknown';
-      return platforms
-          .take(3)
-          .map((p) => p['platform']['name'].toString())
-          .join(', ');
+    String getGenres(dynamic genres) {
+      if (genres == null) return 'Unknown';
+      // If it's already a string (from our saved data), return it
+      if (genres is String) return genres;
+      final list = ensureList(genres);
+      if (list.isEmpty) return 'Unknown';
+      // Check if it's RAWG format (objects with 'name') or our format (strings)
+      if (list.first is Map) {
+        return list.take(3).map((g) => g['name']?.toString() ?? '').join(', ');
+      }
+      return list.take(3).map((g) => g.toString()).join(', ');
     }
 
-    String getEsrbRating(Map<String, dynamic>? esrb) {
+    String getPlatforms(dynamic platforms) {
+      if (platforms == null) return 'Unknown';
+      // If it's already a string (from our saved data), return it
+      if (platforms is String) return platforms;
+      final list = ensureList(platforms);
+      if (list.isEmpty) return 'Unknown';
+      // Check if it's RAWG format or our format
+      if (list.first is Map && list.first['platform'] != null) {
+        return list
+            .take(3)
+            .map((p) => p['platform']['name']?.toString() ?? '')
+            .join(', ');
+      }
+      return list.take(3).map((p) => p.toString()).join(', ');
+    }
+
+    String getEsrbRating(dynamic esrb) {
       if (esrb == null) return '';
-      return esrb['slug']?.toString() ?? '';
+      if (esrb is String) return esrb;
+      if (esrb is Map) return esrb['slug']?.toString() ?? '';
+      return '';
     }
 
-    List<String> getTags(List<dynamic>? tagsJson) {
-      if (tagsJson == null || tagsJson.isEmpty) return [];
-      return tagsJson
-          .map((t) => t['slug']?.toString() ?? '')
-          .where((s) => s.isNotEmpty)
-          .toList();
+    List<String> getTags(dynamic tags) {
+      final list = ensureList(tags);
+      if (list.isEmpty) return [];
+      // Check if it's RAWG format (objects with 'slug') or our format (strings)
+      return list.map((t) {
+        if (t is Map) return t['slug']?.toString() ?? '';
+        return t.toString();
+      }).where((s) => s.isNotEmpty).toList().cast<String>();
     }
 
-    int? getHighestMetacritic(int? directMetacritic, List<dynamic>? platforms) {
+    int? getHighestMetacritic(int? directMetacritic, dynamic platforms) {
       int? highest = directMetacritic;
+      final list = ensureList(platforms);
 
-      if (platforms != null && platforms.isNotEmpty) {
-        for (var platform in platforms) {
-          final score = platform['metascore'] as int?;
-          if (score != null && (highest == null || score > highest)) {
-            highest = score;
+      if (list.isNotEmpty) {
+        for (var platform in list) {
+          if (platform is Map) {
+            final score = platform['metascore'] as int?;
+            if (score != null && (highest == null || score > highest)) {
+              highest = score;
+            }
           }
         }
       }
@@ -136,55 +170,71 @@ class Game {
       return highest;
     }
 
-    List<String> getDevelopers(List<dynamic>? devs) {
-      if (devs == null || devs.isEmpty) return [];
-      return devs
-          .map((d) => d['name']?.toString() ?? '')
-          .where((s) => s.isNotEmpty)
-          .toList();
+    List<String> getDevelopers(dynamic devs) {
+      final list = ensureList(devs);
+      if (list.isEmpty) return [];
+      return list.map((d) {
+        if (d is Map) return d['name']?.toString() ?? '';
+        return d.toString();
+      }).where((s) => s.isNotEmpty).toList().cast<String>();
     }
 
-    List<String> getPublishers(List<dynamic>? pubs) {
-      if (pubs == null || pubs.isEmpty) return [];
-      return pubs
-          .map((p) => p['name']?.toString() ?? '')
-          .where((s) => s.isNotEmpty)
-          .toList();
+    List<String> getPublishers(dynamic pubs) {
+      final list = ensureList(pubs);
+      if (list.isEmpty) return [];
+      return list.map((p) {
+        if (p is Map) return p['name']?.toString() ?? '';
+        return p.toString();
+      }).where((s) => s.isNotEmpty).toList().cast<String>();
     }
 
-    List<Map<String, String>> getStores(List<dynamic>? storesJson) {
-      if (storesJson == null || storesJson.isEmpty) return [];
-      return storesJson
-          .map((s) {
+    List<Map<String, String>> getStores(dynamic stores) {
+      final list = ensureList(stores);
+      if (list.isEmpty) return [];
+      return list.map((s) {
+        if (s is Map) {
+          // Check if it's RAWG format or our format
+          if (s['store'] != null) {
             final storeName = s['store']?['name']?.toString() ?? '';
             final storeUrl = s['url']?.toString() ?? '';
-            if (storeName.isNotEmpty && storeUrl.isNotEmpty) {
+            if (storeName.isNotEmpty) {
               return {'name': storeName, 'url': storeUrl};
             }
-            return null;
-          })
-          .whereType<Map<String, String>>()
-          .toList();
+          } else {
+            // Our saved format
+            final name = s['name']?.toString() ?? '';
+            final url = s['url']?.toString() ?? '';
+            if (name.isNotEmpty) {
+              return {'name': name, 'url': url};
+            }
+          }
+        }
+        return null;
+      }).whereType<Map<String, String>>().toList();
     }
 
     List<String> getScreenshots(Map<String, dynamic> json) {
-      if (json['screenshots'] != null &&
-          json['screenshots'] is List &&
-          (json['screenshots'] as List).isNotEmpty) {
-        return (json['screenshots'] as List)
-            .take(8)
-            .map((s) => s['image']?.toString() ?? '')
-            .where((url) => url.isNotEmpty)
-            .toList();
+      // First try our saved format
+      final screenshots = ensureList(json['screenshots']);
+      if (screenshots.isNotEmpty) {
+        return screenshots.map((s) {
+          if (s is Map) return s['image']?.toString() ?? '';
+          return s.toString();
+        }).where((url) => url.isNotEmpty).take(8).toList().cast<String>();
       }
-      if (json['short_screenshots'] != null &&
-          json['short_screenshots'] is List) {
-        return (json['short_screenshots'] as List)
+      // Then try RAWG format
+      final shortScreenshots = ensureList(json['short_screenshots']);
+      if (shortScreenshots.isNotEmpty) {
+        return shortScreenshots
             .skip(1)
             .take(6)
-            .map((s) => s['image']?.toString() ?? '')
+            .map((s) {
+              if (s is Map) return s['image']?.toString() ?? '';
+              return s.toString();
+            })
             .where((url) => url.isNotEmpty)
-            .toList();
+            .toList()
+            .cast<String>();
       }
       return [];
     }
@@ -193,20 +243,20 @@ class Game {
       id: json['id'] ?? 0,
       slug: json['slug'] ?? '',
       title: json['name'] ?? json['title'] ?? 'Unknown Title',
-      genre: getGenres(json['genres']),
-      platform: getPlatforms(json['platforms']),
+      genre: json['genre'] is String ? json['genre'] : getGenres(json['genres']),
+      platform: json['platform'] is String ? json['platform'] : getPlatforms(json['platforms']),
       metacritic: getHighestMetacritic(
         json['metacritic'] as int?,
-        json['metacritic_platforms'] as List<dynamic>?,
+        json['metacritic_platforms'],
       ),
-      rawgRating: (json['rating'] as num?)?.toDouble() ?? 0,
-      rawgRatingCount: json['ratings_count'] as int? ?? 0,
+      rawgRating: (json['rating'] ?? json['rawgRating'] as num?)?.toDouble() ?? 0,
+      rawgRatingCount: json['ratings_count'] ?? json['rawgRatingCount'] as int? ?? 0,
       platformRating: (json['platformRating'] as num?)?.toDouble(),
       platformRatingCount: json['platformRatingCount'] as int? ?? 0,
       imageUrl: json['background_image'] ?? json['imageUrl'] ?? '',
       description: json['description_raw'] ?? json['description'] ?? '',
       releaseDate: json['released'] ?? json['releaseDate'] ?? 'Unknown',
-      esrbRating: getEsrbRating(json['esrb_rating']),
+      esrbRating: json['esrbRating'] is String ? json['esrbRating'] : getEsrbRating(json['esrb_rating']),
       tags: getTags(json['tags']),
       addedCount: json['added'] ?? json['addedCount'] ?? 0,
       developers: getDevelopers(json['developers']),
