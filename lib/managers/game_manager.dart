@@ -139,7 +139,10 @@ class GameManager extends ChangeNotifier {
     final exists = _userGames.any((g) => g.id == game.id);
     if (exists) return;
 
-    final newGame = game.copyWith(status: status);
+    final newGame = game.copyWith(
+      status: status,
+      isFavorite: game.isFavorite, // Preserve the favorite flag
+    );
     await _firebaseService.saveGame(newGame);
   }
 
