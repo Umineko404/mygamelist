@@ -137,11 +137,23 @@ class _HomePageState extends State<HomePage>
             },
           ),
           const Spacer(),
-          Text(
-            'MGL',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontSize: 28, letterSpacing: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.videogame_asset_rounded,
+                size: 28,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'MyGameList',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
           ),
           const Spacer(),
           IconButton(
@@ -235,17 +247,56 @@ class _HomePageState extends State<HomePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // App branding header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.videogame_asset_rounded,
+                        size: 32,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'MyGameList',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Track your gaming journey',
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(200),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // User info section
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF4A7FD5),
+                color: Theme.of(context).colorScheme.primary.withAlpha(25),
                 border: Border(
                   bottom: BorderSide(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white.withAlpha(25)
-                        : Colors.black.withAlpha(25),
-                    width: 0.5,
+                    color: Theme.of(context).dividerColor,
+                    width: 1,
                   ),
                 ),
               ),
@@ -254,36 +305,41 @@ class _HomePageState extends State<HomePage>
                   final displayName = authService.displayName ?? 'User';
                   final email = authService.userEmail ?? '';
                   final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  return Row(
                     children: [
                       CircleAvatar(
-                        radius: 25,
-                        backgroundColor: Colors.white,
+                        radius: 22,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         child: Text(
                           initial,
                           style: const TextStyle(
-                            fontSize: 20,
-                            color: Color(0xFF4A7FD5),
+                            fontSize: 18,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        displayName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        email,
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(230),
-                          fontSize: 14,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              email,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -291,14 +347,26 @@ class _HomePageState extends State<HomePage>
                 },
               ),
             ),
+            const SizedBox(height: 8),
             _buildSidebarItem('Settings', Icons.settings, () {
               _toggleSidebar();
               _showSettingsDialog(context);
             }),
+            Divider(height: 1, color: Theme.of(context).dividerColor),
             _buildSidebarItem('Sign Out', Icons.logout, () {
               _toggleSidebar();
               context.read<AuthService>().signOut();
             }),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'v1.0.0',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -306,21 +374,23 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildSidebarItem(String title, IconData icon, VoidCallback onTap) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF1A1A1A)
-            : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Text(title, style: Theme.of(context).textTheme.bodyLarge),
-            const Spacer(),
             Icon(
               icon,
-              color: Theme.of(context).textTheme.bodyMedium?.color,
-              size: 20,
+              color: Theme.of(context).colorScheme.primary,
+              size: 22,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
