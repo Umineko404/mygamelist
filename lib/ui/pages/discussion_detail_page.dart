@@ -345,7 +345,7 @@ class _DiscussionDetailPageState extends State<DiscussionDetailPage> {
   }
 }
 
-class _CommentWidget extends StatelessWidget {
+class _CommentWidget extends StatefulWidget {
   final Comment comment;
   final String discussionId;
   final bool isExpanded;
@@ -365,6 +365,32 @@ class _CommentWidget extends StatelessWidget {
   });
 
   @override
+  State<_CommentWidget> createState() => _CommentWidgetState();
+}
+
+class _CommentWidgetState extends State<_CommentWidget> {
+  final FocusNode _replyFocusNode = FocusNode();
+  bool _wasExpanded = false;
+
+  @override
+  void dispose() {
+    _replyFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CommentWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Request focus when expanding (but not when already expanded)
+    if (widget.isExpanded && !_wasExpanded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _replyFocusNode.requestFocus();
+      });
+    }
+    _wasExpanded = widget.isExpanded;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -378,8 +404,8 @@ class _CommentWidget extends StatelessWidget {
                 radius: 18,
                 backgroundColor: Theme.of(context).colorScheme.secondary,
                 child: Text(
-                  comment.authorName.isNotEmpty
-                      ? comment.authorName[0].toUpperCase()
+                  widget.comment.authorName.isNotEmpty
+                      ? widget.comment.authorName[0].toUpperCase()
                       : '?',
                   style: const TextStyle(
                     color: Colors.white,
@@ -396,7 +422,7 @@ class _CommentWidget extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          comment.authorName,
+                          widget.comment.authorName,
                           style:
                               Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.w600,
@@ -404,21 +430,21 @@ class _CommentWidget extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          comment.timeAgo,
+                          widget.comment.timeAgo,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      comment.content,
+                      widget.comment.content,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         InkWell(
-                          onTap: onToggleReplies,
+                          onTap: widget.onToggleReplies,
                           borderRadius: BorderRadius.circular(4),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
@@ -428,7 +454,7 @@ class _CommentWidget extends StatelessWidget {
                             child: Row(
                               children: [
                                 Icon(
-                                  isExpanded
+                                  widget.isExpanded
                                       ? Icons.expand_less
                                       : Icons.expand_more,
                                   size: 18,
@@ -437,7 +463,7 @@ class _CommentWidget extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isExpanded ? 'Hide replies' : 'Reply',
+                                  widget.isExpanded ? 'Hide replies' : 'Reply',
                                   style: TextStyle(
                                     color:
                                         Theme.of(context).colorScheme.secondary,
@@ -457,7 +483,7 @@ class _CommentWidget extends StatelessWidget {
             ],
           ),
           // Replies Section (expanded)
-          if (isExpanded) ...[
+          if (widget.isExpanded) ...[
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.only(left: 48),
@@ -468,7 +494,8 @@ class _CommentWidget extends StatelessWidget {
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: replyController,
+                          controller: widget.replyController,
+                          focusNode: _replyFocusNode,
                           decoration: InputDecoration(
                             hintText: 'Write a reply...',
                             border: OutlineInputBorder(
@@ -486,12 +513,12 @@ class _CommentWidget extends StatelessWidget {
                           style: const TextStyle(fontSize: 14),
                           maxLines: 1,
                           textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => onSubmitReply(),
+                          onSubmitted: (_) => widget.onSubmitReply(),
                         ),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        onPressed: onSubmitReply,
+                        onPressed: widget.onSubmitReply,
                         icon: Icon(
                           Icons.send,
                           size: 20,
@@ -508,7 +535,7 @@ class _CommentWidget extends StatelessWidget {
                   const SizedBox(height: 12),
                   // Replies list
                   StreamBuilder<List<Comment>>(
-                    stream: discussionService.getReplies(comment.id),
+                    stream: widget.discussionService.getReplies(widget.comment.id),
                     builder: (context, snapshot) {
                       final replies = snapshot.data ?? [];
 
