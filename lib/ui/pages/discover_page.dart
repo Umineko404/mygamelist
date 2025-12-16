@@ -101,24 +101,29 @@ class _DiscoverPageState extends State<DiscoverPage> {
               SliverToBoxAdapter(child: _buildBrowseSection(context)),
 
               // AI Recommendations Section
-              if (isLoadingRecs)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 12),
-                          Text('Analyzing your preferences...'),
-                        ],
+              if (isLoadingRecs || recommendations.isNotEmpty) ...[
+                _buildRecommendationsHeader(context),
+                if (isLoadingRecs)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(height: 12),
+                            Text('Analyzing your preferences...'),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                )
-              else if (recommendations.isNotEmpty) ...[
-                _buildRecommendationsHeader(context),
-                _buildRecommendationsList(recommendations),
+                  )
+                else
+                  _buildRecommendationsList(recommendations),
               ],
 
               _buildSectionHeader(
