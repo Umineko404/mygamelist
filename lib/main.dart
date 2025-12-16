@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'managers/game_manager.dart';
 import 'managers/theme_manager.dart';
+import 'services/auth_service.dart';
+import 'ui/pages/auth_page.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/theme.dart';
 
@@ -24,6 +26,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => GameManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager()),
       ],
@@ -39,15 +42,15 @@ class MyGameListApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeManager>(
-      builder: (context, themeManager, child) {
+    return Consumer2<ThemeManager, AuthService>(
+      builder: (context, themeManager, authService, child) {
         return MaterialApp(
           title: 'MyGameList',
           debugShowCheckedModeBanner: false,
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeManager.themeMode,
-          home: const HomePage(),
+          home: authService.isAuthenticated ? const HomePage() : const AuthPage(),
         );
       },
     );
