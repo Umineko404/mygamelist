@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/game_model.dart';
@@ -19,16 +22,44 @@ class GameManager extends ChangeNotifier {
   List<Game> _topRated = [];
   bool _isLoading = false;
 
+  StreamSubscription<List<Game>>? _gamesSubscription;
+  StreamSubscription<User?>? _authSubscription;
+
   GameManager() {
     _init();
   }
 
   void _init() {
-    _firebaseService.getUserGames().listen((games) {
+    // Listen for auth state changes to reinitialize game subscription
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      _setupGameSubscription();
+    });
+    _loadTrending();
+  }
+
+  void _setupGameSubscription() {
+    // Cancel existing subscription
+    _gamesSubscription?.cancel();
+    
+    // Clear games when logged out
+    if (!_firebaseService.isAuthenticated) {
+      _userGames = [];
+      notifyListeners();
+      return;
+    }
+
+    // Subscribe to user's games
+    _gamesSubscription = _firebaseService.getUserGames().listen((games) {
       _userGames = games;
       notifyListeners();
     });
-    _loadTrending();
+  }
+
+  @override
+  void dispose() {
+    _gamesSubscription?.cancel();
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTrending() async {
