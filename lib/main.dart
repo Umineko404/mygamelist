@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'managers/game_manager.dart';
 import 'managers/theme_manager.dart';
 import 'services/auth_service.dart';
+import 'services/profile_image_service.dart';
 import 'ui/pages/auth_page.dart';
 import 'ui/pages/home_page.dart';
 import 'ui/theme.dart';
@@ -29,6 +30,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => GameManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager()),
+        ChangeNotifierProvider(create: (_) => ProfileImageService()),
       ],
       child: const MyGameListApp(),
     ),

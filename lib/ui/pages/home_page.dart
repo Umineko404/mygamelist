@@ -1,8 +1,10 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../managers/theme_manager.dart';
 import '../../services/auth_service.dart';
+import '../../services/profile_image_service.dart';
 import 'home_page_content.dart';
 import 'discover_page.dart';
 import 'discussions_page.dart';
@@ -115,23 +117,36 @@ class _HomePageState extends State<HomePage>
       ),
       child: Row(
         children: [
-          Consumer<AuthService>(
-            builder: (context, authService, child) {
-              final displayName = authService.displayName ?? authService.userEmail ?? 'U';
-              final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+          Consumer2<AuthService, ProfileImageService>(
+            builder: (context, authService, profileImageService, child) {
+              final displayName =
+                  authService.displayName ?? authService.userEmail ?? 'U';
+              final initial =
+                  displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
               return GestureDetector(
                 onTap: _toggleSidebar,
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: Text(
-                    initial,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
+                child: StreamBuilder<String?>(
+                  stream: profileImageService.profileImageStream(),
+                  builder: (context, snapshot) {
+                    final imageData = snapshot.data;
+                    return CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      backgroundImage: imageData != null && imageData.isNotEmpty
+                          ? MemoryImage(base64Decode(imageData))
+                          : null,
+                      child: imageData == null || imageData.isEmpty
+                          ? Text(
+                              initial,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            )
+                          : null,
+                    );
+                  },
                 ),
               );
             },
@@ -149,9 +164,9 @@ class _HomePageState extends State<HomePage>
               Text(
                 'MyGameList',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
               ),
             ],
           ),
@@ -203,9 +218,8 @@ class _HomePageState extends State<HomePage>
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     final isSelected = _selectedIndex == index;
-    final color = isSelected
-        ? Theme.of(context).colorScheme.primary
-        : Colors.grey;
+    final color =
+        isSelected ? Theme.of(context).colorScheme.primary : Colors.grey;
 
     return InkWell(
       onTap: () => setState(() => _selectedIndex = index),
@@ -300,24 +314,39 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
               ),
-              child: Consumer<AuthService>(
-                builder: (context, authService, child) {
+              child: Consumer2<AuthService, ProfileImageService>(
+                builder: (context, authService, profileImageService, child) {
                   final displayName = authService.displayName ?? 'User';
                   final email = authService.userEmail ?? '';
-                  final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+                  final initial = displayName.isNotEmpty
+                      ? displayName[0].toUpperCase()
+                      : 'U';
                   return Row(
                     children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        child: Text(
-                          initial,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      StreamBuilder<String?>(
+                        stream: profileImageService.profileImageStream(),
+                        builder: (context, snapshot) {
+                          final imageData = snapshot.data;
+                          return CircleAvatar(
+                            radius: 22,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
+                            backgroundImage:
+                                imageData != null && imageData.isNotEmpty
+                                    ? MemoryImage(base64Decode(imageData))
+                                    : null,
+                            child: imageData == null || imageData.isEmpty
+                                ? Text(
+                                    initial,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
+                          );
+                        },
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -326,17 +355,23 @@ class _HomePageState extends State<HomePage>
                           children: [
                             Text(
                               displayName,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(
                               email,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey,
-                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Colors.grey,
+                                  ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ],
@@ -363,8 +398,8 @@ class _HomePageState extends State<HomePage>
               child: Text(
                 'v1.0.0',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey,
-                ),
+                      color: Colors.grey,
+                    ),
               ),
             ),
           ],
@@ -389,8 +424,8 @@ class _HomePageState extends State<HomePage>
             Text(
               title,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
+                    fontWeight: FontWeight.w500,
+                  ),
             ),
           ],
         ),
