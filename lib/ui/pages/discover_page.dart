@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../managers/game_manager.dart';
 import '../../models/game_model.dart';
+import '../../services/recommendation_service.dart';
 import 'game_detail_page.dart';
 import 'universal_game_list_page.dart';
 import 'category_list_page.dart';
@@ -38,8 +39,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
         final trending = gameManager.trendingGames;
         final newReleases = gameManager.newReleases;
         final topRated = gameManager.topRated;
+        final recommendations = gameManager.recommendations;
         final bool isSearching = _searchQuery.isNotEmpty;
         final bool isLoading = gameManager.isLoading;
+        final bool isLoadingRecs = gameManager.isLoadingRecommendations;
 
         return CustomScrollView(
           slivers: [
@@ -96,6 +99,27 @@ class _DiscoverPageState extends State<DiscoverPage> {
               _buildGridList(searchResults, 'Search Results')
             else ...[
               SliverToBoxAdapter(child: _buildBrowseSection(context)),
+
+              // AI Recommendations Section
+              if (isLoadingRecs)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 12),
+                          Text('Analyzing your preferences...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (recommendations.isNotEmpty) ...[
+                _buildRecommendationsHeader(context),
+                _buildRecommendationsList(recommendations),
+              ],
 
               _buildSectionHeader(
                 'New & Upcoming',
@@ -198,6 +222,212 @@ class _DiscoverPageState extends State<DiscoverPage> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationsHeader(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withAlpha(25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recommended For You',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Based on your gaming preferences',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationsList(List<RecommendedGame> recommendations) {
+    return SliverToBoxAdapter(
+      child: SizedBox(
+        height: 280,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          itemCount: recommendations.length,
+          itemBuilder: (context, index) {
+            final rec = recommendations[index];
+            return Container(
+              width: 160,
+              margin: const EdgeInsets.only(right: 16),
+              child: _buildRecommendationCard(rec),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationCard(RecommendedGame rec) {
+    final game = rec.game;
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => GameDetailPage(game: game)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Game image card
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                image: game.imageUrl.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(game.imageUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+                color: Colors.grey[800],
+              ),
+              child: Stack(
+                children: [
+                  // Gradient overlay
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, Colors.black.withAlpha(180)],
+                      ),
+                    ),
+                  ),
+                  // AI badge
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${rec.confidence}%',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Rating badge
+                  if (game.hasRating)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getMetacriticColor(game.displayRatingValue!),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          game.displayRatingValue.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Title
+                  Positioned(
+                    bottom: 10,
+                    left: 10,
+                    right: 10,
+                    child: Text(
+                      game.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        shadows: [Shadow(blurRadius: 2)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Recommendation reason
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              rec.reason,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

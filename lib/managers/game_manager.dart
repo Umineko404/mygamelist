@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../models/game_model.dart';
 import '../services/firebase_service.dart';
 import '../services/rawg_service.dart';
+import '../services/recommendation_service.dart';
 
 /// Central state manager for game library and discovery features.
 /// 
@@ -14,13 +15,16 @@ import '../services/rawg_service.dart';
 class GameManager extends ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService();
   final RawgService _rawgService = RawgService();
+  final RecommendationService _recommendationService = RecommendationService();
 
   List<Game> _userGames = [];
   List<Game> _searchResults = [];
   List<Game> _trendingGames = [];
   List<Game> _newReleases = [];
   List<Game> _topRated = [];
+  List<RecommendedGame> _recommendations = [];
   bool _isLoading = false;
+  bool _isLoadingRecommendations = false;
 
   StreamSubscription<List<Game>>? _gamesSubscription;
   StreamSubscription<User?>? _authSubscription;
@@ -58,6 +62,8 @@ class GameManager extends ChangeNotifier {
         debugPrint('GameManager: Received ${games.length} games from stream');
         _userGames = games;
         notifyListeners();
+        // Refresh recommendations when user's library changes
+        _loadRecommendations();
       },
       onError: (error) {
         debugPrint('GameManager: Stream error: $error');
@@ -83,13 +89,44 @@ class GameManager extends ChangeNotifier {
     }
   }
 
+  /// Loads AI-based recommendations based on user's game library.
+  Future<void> _loadRecommendations() async {
+    if (_userGames.isEmpty) {
+      _recommendations = [];
+      notifyListeners();
+      return;
+    }
+
+    _isLoadingRecommendations = true;
+    notifyListeners();
+
+    try {
+      _recommendations = await _recommendationService.getRecommendations(_userGames);
+      debugPrint('GameManager: Loaded ${_recommendations.length} recommendations');
+    } catch (e) {
+      debugPrint('Error loading recommendations: $e');
+      _recommendations = [];
+    } finally {
+      _isLoadingRecommendations = false;
+      notifyListeners();
+    }
+  }
+
+  /// Manually refresh recommendations.
+  Future<void> refreshRecommendations() async {
+    await _loadRecommendations();
+  }
+
   // Getters - Game Lists
   List<Game> get games => List.unmodifiable(_userGames);
   List<Game> get searchResults => List.unmodifiable(_searchResults);
   List<Game> get trendingGames => List.unmodifiable(_trendingGames);
   List<Game> get newReleases => List.unmodifiable(_newReleases);
   List<Game> get topRated => List.unmodifiable(_topRated);
+  List<RecommendedGame> get recommendations => List.unmodifiable(_recommendations);
   bool get isLoading => _isLoading;
+  bool get isLoadingRecommendations => _isLoadingRecommendations;
+  bool get hasRecommendations => _recommendations.isNotEmpty;
 
   // Getters - Filtered by Status
   List<Game> get playingGames =>
