@@ -1,0 +1,464 @@
+import 'package:flutter/material.dart';
+import '../../models/game_model.dart';
+import '../../services/rawg_service.dart';
+import 'game_detail_page.dart';
+
+class UniversalGameListPage extends StatefulWidget {
+  final String title;
+  final String? ordering;
+  final String? dates;
+  final String? genres;
+  final String? platforms;
+  final String? stores;
+  final String? tags;
+  final String? developers;
+  final String? publishers;
+  final int? minRatingsCount;
+  final String? parentPlatforms;
+
+  const UniversalGameListPage({
+    super.key,
+    required this.title,
+    this.ordering,
+    this.dates,
+    this.genres,
+    this.platforms,
+    this.stores,
+    this.tags,
+    this.developers,
+    this.publishers,
+    this.minRatingsCount,
+    this.parentPlatforms,
+  });
+
+  @override
+  State<UniversalGameListPage> createState() => _UniversalGameListPageState();
+}
+
+class _UniversalGameListPageState extends State<UniversalGameListPage> {
+  final RawgService _rawgService = RawgService();
+  final ScrollController _scrollController = ScrollController();
+
+  List<Game> _games = [];
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  String? _errorMessage;
+  int _currentPage = 1;
+  bool _hasMore = true;
+
+  // Filter state
+  late String _selectedOrdering;
+  String? _selectedDatePreset;
+
+  static const _orderingOptions = {
+    '-added': 'Popularity',
+    '-released': 'Release Date',
+    '-metacritic': 'Metacritic',
+    'name': 'Name (A-Z)',
+    '-name': 'Name (Z-A)',
+  };
+
+  static const _datePresets = {
+    'all': 'All Time',
+    'thisYear': 'This Year',
+    'lastYear': 'Last Year',
+    'upcoming': 'Upcoming',
+    'last30': 'Last 30 Days',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedOrdering = widget.ordering ?? '-added';
+    _scrollController.addListener(_onScroll);
+    _loadGames();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
+      if (!_isLoadingMore && _hasMore && !_isLoading) {
+        _loadMoreGames();
+      }
+    }
+  }
+
+  String? _getDateRange(String? preset) {
+    if (preset == null || preset == 'all') return widget.dates;
+
+    final now = DateTime.now();
+    String formatDate(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    switch (preset) {
+      case 'thisYear':
+        return '${now.year}-01-01,${now.year}-12-31';
+      case 'lastYear':
+        return '${now.year - 1}-01-01,${now.year - 1}-12-31';
+      case 'upcoming':
+        return '${formatDate(now)},${formatDate(now.add(const Duration(days: 365)))}';
+      case 'last30':
+        return '${formatDate(now.subtract(const Duration(days: 30)))},${formatDate(now)}';
+      default:
+        return widget.dates;
+    }
+  }
+
+  Future<void> _loadGames() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _currentPage = 1;
+      _games = [];
+    });
+
+    try {
+      final games = await _rawgService.getGames(
+        page: 1,
+        pageSize: 40, // Increased to account for filtering
+        ordering: _selectedOrdering,
+        dates: _getDateRange(_selectedDatePreset),
+        genres: widget.genres,
+        platforms: widget.platforms,
+        stores: widget.stores,
+        tags: widget.tags,
+        developers: widget.developers,
+        publishers: widget.publishers,
+        minRatingsCount: widget.minRatingsCount,
+        parentPlatforms: widget.parentPlatforms,
+      );
+
+      if (mounted) {
+        setState(() {
+          _games = games;
+          _isLoading = false;
+          _hasMore = games.isNotEmpty; // Continue loading if we got any games
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load games. Please try again.';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreGames() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+    _currentPage++;
+
+    try {
+      final games = await _rawgService.getGames(
+        page: _currentPage,
+        pageSize: 40,
+        ordering: _selectedOrdering,
+        dates: _getDateRange(_selectedDatePreset),
+        genres: widget.genres,
+        platforms: widget.platforms,
+        stores: widget.stores,
+        tags: widget.tags,
+        developers: widget.developers,
+        publishers: widget.publishers,
+        minRatingsCount: widget.minRatingsCount,
+        parentPlatforms: widget.parentPlatforms,
+      );
+
+      if (mounted) {
+        setState(() {
+          _games.addAll(games);
+          _isLoadingMore = false;
+          _hasMore = games.isNotEmpty;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+          _currentPage--;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: Theme.of(context).cardColor,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(
+          color: Theme.of(context).textTheme.titleLarge?.color,
+        ),
+        titleTextStyle: Theme.of(context).textTheme.titleLarge,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterSheet,
+          ),
+        ],
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          maxChildSize: 0.9,
+          minChildSize: 0.3,
+          expand: false,
+          builder: (context, scrollController) => Padding(
+            padding: const EdgeInsets.all(20),
+            child: ListView(
+              controller: scrollController,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[400],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text('Filters', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 20),
+                Text(
+                  'Order By',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _orderingOptions.entries
+                      .map(
+                        (e) => ChoiceChip(
+                          label: Text(e.value),
+                          selected: _selectedOrdering == e.key,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _selectedOrdering = e.key);
+                              setSheetState(() {});
+                              Navigator.pop(context);
+                              _loadGames();
+                            }
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Release Date',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _datePresets.entries
+                      .map(
+                        (e) => ChoiceChip(
+                          label: Text(e.value),
+                          selected: _selectedDatePreset == e.key,
+                          onSelected: (selected) {
+                            setState(
+                              () =>
+                                  _selectedDatePreset = selected ? e.key : null,
+                            );
+                            setSheetState(() {});
+                            Navigator.pop(context);
+                            _loadGames();
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(_errorMessage!, style: const TextStyle(color: Colors.grey)),
+            TextButton(onPressed: _loadGames, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    if (_games.isEmpty) {
+      return const Center(child: Text('No games found for this category.'));
+    }
+
+    return GridView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount:
+          _games.length +
+          (_isLoadingMore
+              ? 2
+              : 0), // Add 2 for loading indicator spanning 2 columns
+      itemBuilder: (context, index) {
+        if (index >= _games.length) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return _buildGameCard(_games[index]);
+      },
+    );
+  }
+
+  Widget _buildGameCard(Game game) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => GameDetailPage(game: game)),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Theme.of(context).cardColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(20),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    game.imageUrl.isNotEmpty
+                        ? Image.network(
+                            game.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  color: Colors.grey[800],
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                          )
+                        : Container(
+                            color: Colors.grey[800],
+                            child: const Icon(
+                              Icons.gamepad,
+                              color: Colors.grey,
+                              size: 40,
+                            ),
+                          ),
+                    // Rating badge (Metacritic or RAWG fallback)
+                    if (game.hasRating)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getMetacriticColor(
+                              game.displayRatingValue!,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            game.displayRatingValue.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(
+                game.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getMetacriticColor(int score) {
+    // Metacritic-style color coding
+    if (score >= 90) {
+      return const Color(0xFF00AA00); // Dark green - Universal Acclaim
+    }
+    if (score >= 75) {
+      return const Color(0xFF66CC33); // Green - Generally Favorable
+    }
+    if (score >= 50) return const Color(0xFFFFCC33); // Yellow - Mixed Reviews
+    if (score >= 20) return const Color(0xFFFF9933); // Orange - Unfavorable
+    return const Color(0xFFFF6666); // Red - Overwhelming Dislike
+  }
+}
