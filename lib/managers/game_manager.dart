@@ -32,27 +32,37 @@ class GameManager extends ChangeNotifier {
   void _init() {
     // Listen for auth state changes to reinitialize game subscription
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
-      _setupGameSubscription();
+      debugPrint('GameManager: Auth state changed, user: ${user?.uid}');
+      _setupGameSubscription(user);
     });
     _loadTrending();
   }
 
-  void _setupGameSubscription() {
+  void _setupGameSubscription(User? user) {
     // Cancel existing subscription
     _gamesSubscription?.cancel();
     
     // Clear games when logged out
-    if (!_firebaseService.isAuthenticated) {
+    if (user == null) {
+      debugPrint('GameManager: User is null, clearing games');
       _userGames = [];
       notifyListeners();
       return;
     }
 
-    // Subscribe to user's games
-    _gamesSubscription = _firebaseService.getUserGames().listen((games) {
-      _userGames = games;
-      notifyListeners();
-    });
+    debugPrint('GameManager: Setting up subscription for user: ${user.uid}');
+    
+    // Subscribe to user's games with the current user's ID
+    _gamesSubscription = _firebaseService.getUserGames(user.uid).listen(
+      (games) {
+        debugPrint('GameManager: Received ${games.length} games from stream');
+        _userGames = games;
+        notifyListeners();
+      },
+      onError: (error) {
+        debugPrint('GameManager: Stream error: $error');
+      },
+    );
   }
 
   @override
