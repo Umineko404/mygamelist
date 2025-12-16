@@ -74,6 +74,8 @@ class ProfileImageService extends ChangeNotifier {
   /// Picks an image from the specified source and uploads it.
   Future<bool> pickAndUploadImage(ImageSource source) async {
     try {
+      debugPrint('ProfileImageService: Attempting to pick image from $source');
+      
       final XFile? image = await _picker.pickImage(
         source: source,
         maxWidth: 512,
@@ -81,11 +83,16 @@ class ProfileImageService extends ChangeNotifier {
         imageQuality: 70, // Compress to 70% quality
       );
 
-      if (image == null) return false;
+      if (image == null) {
+        debugPrint('ProfileImageService: No image selected (user cancelled or permission denied)');
+        return false;
+      }
 
+      debugPrint('ProfileImageService: Image selected: ${image.path}');
       return await _saveImage(image);
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('ProfileImageService: Error picking image: $e');
+      debugPrint('ProfileImageService: Stack trace: $stackTrace');
       return false;
     }
   }
