@@ -26,6 +26,8 @@ class Game {
   final String? website;
   final String? redditUrl;
   final List<String> screenshots;
+  final double? personalRating;
+  final String? playedOnPlatform;
   final String status;
   final bool isFavorite;
 
@@ -53,6 +55,8 @@ class Game {
     this.website,
     this.redditUrl,
     this.screenshots = const [],
+    this.personalRating,
+    this.playedOnPlatform,
     this.status = 'Plan to Play',
     this.isFavorite = false,
   });
@@ -95,28 +99,46 @@ class Game {
   }
 
   factory Game.fromJson(Map<String, dynamic> json) {
-    String getGenres(List<dynamic>? genres) {
-      if (genres == null || genres.isEmpty) return 'Unknown';
-      return genres.take(3).map((g) => g['name'].toString()).join(', ');
+    String getGenres(dynamic genresData) {
+      // If we already have the computed string from Firebase, use it
+      if (json['genre'] is String && (json['genre'] as String).isNotEmpty) {
+        return json['genre'];
+      }
+      
+      if (genresData == null || genresData is! List || genresData.isEmpty) return 'Unknown';
+      return genresData.take(3).map((g) => g['name'].toString()).join(', ');
     }
 
-    String getPlatforms(List<dynamic>? platforms) {
-      if (platforms == null || platforms.isEmpty) return 'Unknown';
-      return platforms
+    String getPlatforms(dynamic platformsData) {
+      // If we already have the computed string from Firebase, use it
+      if (json['platform'] is String && (json['platform'] as String).isNotEmpty) {
+        return json['platform'];
+      }
+
+      if (platformsData == null || platformsData is! List || platformsData.isEmpty) return 'Unknown';
+      return platformsData
           .take(3)
           .map((p) => p['platform']['name'].toString())
           .join(', ');
     }
 
-    String getEsrbRating(Map<String, dynamic>? esrb) {
-      if (esrb == null) return '';
+    String getEsrbRating(dynamic esrb) {
+      if (esrb is String) return esrb; // Handle Firebase stored format
+      if (esrb == null || esrb is! Map) return '';
       return esrb['slug']?.toString() ?? '';
     }
 
     List<String> getTags(List<dynamic>? tagsJson) {
       if (tagsJson == null || tagsJson.isEmpty) return [];
+      
+      // Handle Firebase format (List<String>)
+      if (tagsJson.first is String) {
+        return tagsJson.cast<String>();
+      }
+
+      // Handle RAWG format (List<Map>)
       return tagsJson
-          .map((t) => t['slug']?.toString() ?? '')
+          .map((t) => t is Map ? (t['slug']?.toString() ?? '') : '')
           .where((s) => s.isNotEmpty)
           .toList();
     }
@@ -126,9 +148,11 @@ class Game {
 
       if (platforms != null && platforms.isNotEmpty) {
         for (var platform in platforms) {
-          final score = platform['metascore'] as int?;
-          if (score != null && (highest == null || score > highest)) {
-            highest = score;
+          if (platform is Map) {
+            final score = platform['metascore'] as int?;
+            if (score != null && (highest == null || score > highest)) {
+              highest = score;
+            }
           }
         }
       }
@@ -138,28 +162,46 @@ class Game {
 
     List<String> getDevelopers(List<dynamic>? devs) {
       if (devs == null || devs.isEmpty) return [];
+      if (devs.first is String) return devs.cast<String>();
+      
       return devs
-          .map((d) => d['name']?.toString() ?? '')
+          .map((d) => d is Map ? (d['name']?.toString() ?? '') : '')
           .where((s) => s.isNotEmpty)
           .toList();
     }
 
     List<String> getPublishers(List<dynamic>? pubs) {
       if (pubs == null || pubs.isEmpty) return [];
+      if (pubs.first is String) return pubs.cast<String>();
+
       return pubs
-          .map((p) => p['name']?.toString() ?? '')
+          .map((p) => p is Map ? (p['name']?.toString() ?? '') : '')
           .where((s) => s.isNotEmpty)
           .toList();
     }
 
     List<Map<String, String>> getStores(List<dynamic>? storesJson) {
       if (storesJson == null || storesJson.isEmpty) return [];
+      
+      // Already correct format (from Firebase)
+      if (storesJson.first is Map<String, String>) {
+         return storesJson.cast<Map<String, String>>();
+      }
+      
+      // Handle generic Map from JSON (Firebase or RAWG)
       return storesJson
           .map((s) {
-            final storeName = s['store']?['name']?.toString() ?? '';
-            final storeUrl = s['url']?.toString() ?? '';
-            if (storeName.isNotEmpty && storeUrl.isNotEmpty) {
-              return {'name': storeName, 'url': storeUrl};
+            if (s is Map) {
+              // Firebase stored format often looks like {name: 'Steam', url: '...'} directly inside the list
+              if (s.containsKey('name') && s.containsKey('url')) {
+                 return {'name': s['name'].toString(), 'url': s['url'].toString()};
+              }
+              // RAWG format: {store: {name: ...}, url: ...}
+              final storeName = s['store']?['name']?.toString() ?? '';
+              final storeUrl = s['url']?.toString() ?? '';
+              if (storeName.isNotEmpty && storeUrl.isNotEmpty) {
+                return {'name': storeName, 'url': storeUrl};
+              }
             }
             return null;
           })
@@ -168,12 +210,21 @@ class Game {
     }
 
     List<String> getScreenshots(Map<String, dynamic> json) {
+      // Handle Firebase stored format (simple list of strings)
+      if (json['screenshots'] != null && 
+          json['screenshots'] is List && 
+          (json['screenshots'] as List).isNotEmpty &&
+          (json['screenshots'] as List).first is String) {
+        return (json['screenshots'] as List).cast<String>();
+      }
+
+      // Handle RAWG format
       if (json['screenshots'] != null &&
           json['screenshots'] is List &&
           (json['screenshots'] as List).isNotEmpty) {
         return (json['screenshots'] as List)
             .take(8)
-            .map((s) => s['image']?.toString() ?? '')
+            .map((s) => s is Map ? (s['image']?.toString() ?? '') : '')
             .where((url) => url.isNotEmpty)
             .toList();
       }
@@ -182,7 +233,7 @@ class Game {
         return (json['short_screenshots'] as List)
             .skip(1)
             .take(6)
-            .map((s) => s['image']?.toString() ?? '')
+            .map((s) => s is Map ? (s['image']?.toString() ?? '') : '')
             .where((url) => url.isNotEmpty)
             .toList();
       }
@@ -206,7 +257,7 @@ class Game {
       imageUrl: json['background_image'] ?? json['imageUrl'] ?? '',
       description: json['description_raw'] ?? json['description'] ?? '',
       releaseDate: json['released'] ?? json['releaseDate'] ?? 'Unknown',
-      esrbRating: getEsrbRating(json['esrb_rating']),
+      esrbRating: getEsrbRating(json['esrb_rating'] ?? json['esrbRating']),
       tags: getTags(json['tags']),
       addedCount: json['added'] ?? json['addedCount'] ?? 0,
       developers: getDevelopers(json['developers']),
@@ -216,6 +267,8 @@ class Game {
       website: json['website'] as String?,
       redditUrl: json['reddit_url'] as String?,
       screenshots: getScreenshots(json),
+      personalRating: (json['personalRating'] as num?)?.toDouble(),
+      playedOnPlatform: json['playedOnPlatform'] as String?,
       status: json['status'] ?? 'Plan to Play',
       isFavorite: json['isFavorite'] ?? false,
     );
@@ -246,6 +299,8 @@ class Game {
       'website': website,
       'redditUrl': redditUrl,
       'screenshots': screenshots,
+      'personalRating': personalRating,
+      'playedOnPlatform': playedOnPlatform,
       'status': status,
       'isFavorite': isFavorite,
     };
@@ -275,6 +330,8 @@ class Game {
     String? website,
     String? redditUrl,
     List<String>? screenshots,
+    double? personalRating,
+    String? playedOnPlatform,
     String? status,
     bool? isFavorite,
   }) {
@@ -302,6 +359,8 @@ class Game {
       website: website ?? this.website,
       redditUrl: redditUrl ?? this.redditUrl,
       screenshots: screenshots ?? this.screenshots,
+      personalRating: personalRating ?? this.personalRating,
+      playedOnPlatform: playedOnPlatform ?? this.playedOnPlatform,
       status: status ?? this.status,
       isFavorite: isFavorite ?? this.isFavorite,
     );

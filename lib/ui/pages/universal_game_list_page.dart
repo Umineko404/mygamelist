@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/game_model.dart';
 import '../../services/rawg_service.dart';
+import '../../managers/game_manager.dart';
 import 'game_detail_page.dart';
 
 class UniversalGameListPage extends StatefulWidget {
@@ -49,6 +51,7 @@ class _UniversalGameListPageState extends State<UniversalGameListPage> {
   // Filter state
   late String _selectedOrdering;
   String? _selectedDatePreset;
+  bool _filterByMyPlatforms = false;
 
   static const _orderingOptions = {
     '-added': 'Popularity',
@@ -65,6 +68,31 @@ class _UniversalGameListPageState extends State<UniversalGameListPage> {
     'upcoming': 'Upcoming',
     'last30': 'Last 30 Days',
   };
+
+  // Map slugs to RAWG Platform IDs
+  String? _getFormattedPlatformIds(List<String> userPlatforms) {
+    if (userPlatforms.isEmpty) return null;
+    
+    final Map<String, int> slugToId = {
+      'pc': 4,
+      'playstation5': 187,
+      'playstation4': 18,
+      'xbox-series-x': 186,
+      'xbox-one': 1,
+      'nintendo-switch': 7,
+      'ios': 3,
+      'android': 21,
+      'macos': 5,
+      'linux': 6,
+    };
+
+    final ids = userPlatforms
+        .map((p) => slugToId[p])
+        .where((id) => id != null)
+        .join(',');
+    
+    return ids.isEmpty ? null : ids;
+  }
 
   @override
   void initState() {
@@ -119,13 +147,27 @@ class _UniversalGameListPageState extends State<UniversalGameListPage> {
     });
 
     try {
+      String? platformsParam = widget.platforms;
+      
+      // Merge widget.platforms with "My Platforms" if enabled
+      if (_filterByMyPlatforms) {
+        final gameManager = context.read<GameManager>();
+        final user = gameManager.userProfile;
+        if (user != null) {
+          final myIds = _getFormattedPlatformIds(user.ownedPlatforms);
+          if (myIds != null) {
+            platformsParam = platformsParam != null ? '$platformsParam,$myIds' : myIds;
+          }
+        }
+      }
+
       final games = await _rawgService.getGames(
         page: 1,
-        pageSize: 40, // Increased to account for filtering
+        pageSize: 40,
         ordering: _selectedOrdering,
         dates: _getDateRange(_selectedDatePreset),
         genres: widget.genres,
-        platforms: widget.platforms,
+        platforms: platformsParam,
         stores: widget.stores,
         tags: widget.tags,
         developers: widget.developers,
@@ -158,13 +200,27 @@ class _UniversalGameListPageState extends State<UniversalGameListPage> {
     _currentPage++;
 
     try {
+      String? platformsParam = widget.platforms;
+      
+      // Merge widget.platforms with "My Platforms" if enabled
+      if (_filterByMyPlatforms) {
+        final gameManager = context.read<GameManager>();
+        final user = gameManager.userProfile;
+        if (user != null) {
+          final myIds = _getFormattedPlatformIds(user.ownedPlatforms);
+          if (myIds != null) {
+            platformsParam = platformsParam != null ? '$platformsParam,$myIds' : myIds;
+          }
+        }
+      }
+
       final games = await _rawgService.getGames(
         page: _currentPage,
         pageSize: 40,
         ordering: _selectedOrdering,
         dates: _getDateRange(_selectedDatePreset),
         genres: widget.genres,
-        platforms: widget.platforms,
+        platforms: platformsParam,
         stores: widget.stores,
         tags: widget.tags,
         developers: widget.developers,
@@ -223,12 +279,12 @@ class _UniversalGameListPageState extends State<UniversalGameListPage> {
       ),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) => DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          maxChildSize: 0.9,
-          minChildSize: 0.3,
+          initialChildSize: 0.35,
+          maxChildSize: 0.7,
+          minChildSize: 0.25,
           expand: false,
           builder: (context, scrollController) => Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: ListView(
               controller: scrollController,
               children: [
@@ -242,9 +298,9 @@ class _UniversalGameListPageState extends State<UniversalGameListPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text('Filters', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text(
                   'Order By',
                   style: Theme.of(context).textTheme.titleMedium,
@@ -270,32 +326,50 @@ class _UniversalGameListPageState extends State<UniversalGameListPage> {
                       )
                       .toList(),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Release Date',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _datePresets.entries
-                      .map(
-                        (e) => ChoiceChip(
-                          label: Text(e.value),
-                          selected: _selectedDatePreset == e.key,
-                          onSelected: (selected) {
-                            setState(
-                              () =>
-                                  _selectedDatePreset = selected ? e.key : null,
-                            );
-                            setSheetState(() {});
-                            Navigator.pop(context);
-                            _loadGames();
-                          },
+                const SizedBox(height: 16),
+                // Platform Filter (User Specific)
+                 Consumer<GameManager>(
+                  builder: (context, gameManager, _) {
+                    final isGuest = gameManager.isGuest;
+                    final user = gameManager.userProfile;
+                    final hasPlatforms = user?.ownedPlatforms.isNotEmpty ?? false;
+
+                    if (isGuest || !hasPlatforms) return const SizedBox.shrink();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                             Text(
+                              'My Platforms Only',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            Switch(
+                              value: _filterByMyPlatforms,
+                              onChanged: (val) {
+                                setState(() => _filterByMyPlatforms = val);
+                                setSheetState(() {}); // Update sheet UI
+                                Navigator.pop(context);
+                                _loadGames();
+                              },
+                            ),
+                          ],
                         ),
-                      )
-                      .toList(),
+                        if (_filterByMyPlatforms)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, bottom: 20),
+                            child: Text(
+                              'Filtering by: ${user!.ownedPlatforms.join(", ")}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                         const Divider(), 
+                         const SizedBox(height: 12),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),

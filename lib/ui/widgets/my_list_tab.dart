@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../managers/game_manager.dart';
 import '../../models/game_model.dart';
 import '../pages/game_detail_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MyListTab extends StatefulWidget {
   final String initialFilter;
@@ -14,11 +15,80 @@ class MyListTab extends StatefulWidget {
 
 class MyListTabState extends State<MyListTab> {
   late String _selectedFilter;
+  String _sortOption = 'name_asc';
 
   @override
   void initState() {
     super.initState();
     _selectedFilter = widget.initialFilter;
+  }
+
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            Text(
+              'Sort By',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            _buildSortOption('Name (A-Z)', 'name_asc'),
+            _buildSortOption('Name (Z-A)', 'name_desc'),
+            _buildSortOption('Your Rating', 'rating_desc'),
+            _buildSortOption('Release Date', 'release_desc'),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortOption(String label, String value) {
+    final isSelected = _sortOption == value;
+    return ListTile(
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Theme.of(context).colorScheme.primary : null,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      trailing: isSelected
+          ? Icon(Icons.check, color: Theme.of(context).colorScheme.primary)
+          : null,
+      onTap: () {
+        setState(() => _sortOption = value);
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  List<Game> _sortGames(List<Game> games) {
+    var list = List<Game>.from(games);
+    switch (_sortOption) {
+      case 'name_asc':
+        list.sort((a, b) => a.title.compareTo(b.title));
+        break;
+      case 'name_desc':
+        list.sort((a, b) => b.title.compareTo(a.title));
+        break;
+      case 'rating_desc':
+        list.sort((a, b) => (b.personalRating ?? 0).compareTo(a.personalRating ?? 0));
+        break;
+      case 'release_desc':
+        list.sort((a, b) => (b.releaseDate).compareTo(a.releaseDate));
+        break;
+    }
+    return list;
   }
 
   @override
@@ -39,25 +109,51 @@ class MyListTabState extends State<MyListTab> {
           case 'Favorites':
             filteredGames = gameManager.favoriteGames;
             break;
+          case 'On Hold':
+            filteredGames = gameManager.onHoldGames;
+            break;
+          case 'Dropped':
+            filteredGames = gameManager.droppedGames;
+            break;
           default:
             filteredGames = gameManager.games;
         }
+        
+        // Apply Sort
+        filteredGames = _sortGames(filteredGames);
+
         return Column(
           children: [
             SizedBox(
               height: 60,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
+              child: Row(
                 children: [
-                  _buildFilterChip('All', gameManager.totalGames),
-                  _buildFilterChip('Playing', gameManager.playingCount),
-                  _buildFilterChip('Completed', gameManager.completedCount),
-                  _buildFilterChip('Plan to Play', gameManager.plannedCount),
-                  _buildFilterChip('Favorites', gameManager.favoriteCount),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20, right: 8),
+                    child: IconButton(
+                      icon: const Icon(Icons.sort_rounded),
+                      onPressed: _showSortOptions,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(context).cardColor,
+                        padding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(right: 20, top: 10, bottom: 10),
+                      children: [
+                        _buildFilterChip('All', gameManager.totalGames),
+                        _buildFilterChip('Playing', gameManager.playingCount),
+                        _buildFilterChip('Completed', gameManager.completedCount),
+                        _buildFilterChip('Plan to Play', gameManager.plannedCount),
+                        _buildFilterChip('On Hold', gameManager.onHoldGames.length),
+                        _buildFilterChip('Dropped', gameManager.droppedGames.length),
+                        _buildFilterChip('Favorites', gameManager.favoriteCount),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -135,93 +231,82 @@ class MyListTabState extends State<MyListTab> {
         MaterialPageRoute(builder: (context) => GameDetailPage(game: game)),
       ),
       child: Container(
-        height: 120,
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
-          image: DecorationImage(
-            image: NetworkImage(game.imageUrl),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(
-              Colors.black.withAlpha(128),
-              BlendMode.darken,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(13),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-          ),
+          ],
         ),
-        child: Stack(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Image Section
+            SizedBox(
+              height: 140, // Generous banner height
+              child: CachedNetworkImage(
+                imageUrl: game.imageUrl,
+                fit: BoxFit.cover,
+                memCacheHeight: 400, // Optimize memory (decode smaller)
+                fadeInDuration: Duration.zero, // Prevent fade animation on rebuilds
+                placeholder: (context, url) => Container(color: Colors.grey[800]),
+                errorWidget: (context, url, error) => const Icon(Icons.videogame_asset, color: Colors.grey),
+              ),
+            ),
+            
+            // Details Section (Below image)
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+              padding: const EdgeInsets.all(12),
+              child: Row(
                 children: [
-                  Text(
-                    game.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      shadows: [Shadow(blurRadius: 4)],
+                  Expanded(
+                    child: Text(
+                      game.title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${game.genre} • ${game.platform}',
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(204),
-                      fontSize: 13,
-                      shadows: const [Shadow(blurRadius: 2)],
-                    ),
-                  ),
+                  const SizedBox(width: 8),
+                  if (game.personalRating != null && game.personalRating! > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.amber,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded, size: 16, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(
+                            game.personalRating!.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                     Text(
+                        'Unrated',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).disabledColor,
+                        ),
+                      ),
                 ],
               ),
             ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(game.status),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  game.status,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-            if (game.hasRating)
-              Positioned(
-                bottom: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getMetacriticColor(game.displayRatingValue!),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    game.displayRatingValue.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
       ),

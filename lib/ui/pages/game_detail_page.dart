@@ -71,8 +71,22 @@ class _GameDetailPageState extends State<GameDetailPage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (mounted) {
+          final fetchedGame = Game.fromJson(data);
+          
+          // Preserve user-specific fields from existing library data if available
+          final gameManager = Provider.of<GameManager>(context, listen: false);
+          final existingGame = gameManager.games.firstWhere(
+            (g) => g.id == widget.game.id,
+            orElse: () => widget.game,
+          );
+
           setState(() {
-            _fullGameDetails = Game.fromJson(data);
+            _fullGameDetails = fetchedGame.copyWith(
+              personalRating: existingGame.personalRating,
+              status: existingGame.status,
+              isFavorite: existingGame.isFavorite,
+              playedOnPlatform: existingGame.playedOnPlatform,
+            );
             _isLoadingDetails = false;
           });
         }
@@ -196,11 +210,9 @@ class _GameDetailPageState extends State<GameDetailPage> {
                 ),
               ),
             ),
-            title: Text(
-              'MGL',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontSize: 28, letterSpacing: 2),
+            title: Image.asset(
+              'assets/images/logo.png',
+              height: 40,
             ),
             centerTitle: true,
             actions: [
@@ -228,21 +240,7 @@ class _GameDetailPageState extends State<GameDetailPage> {
                 ),
                 iconSize: 28,
               ),
-              IconButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Share feature coming soon!'),
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                    ),
-                  );
-                },
-                icon: Icon(
-                  Icons.share_rounded,
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-                iconSize: 28,
-              ),
+
             ],
           ),
           body: Stack(
@@ -265,34 +263,43 @@ class _GameDetailPageState extends State<GameDetailPage> {
                   SliverToBoxAdapter(
                     child: Stack(
                       children: [
-                        Image.network(
-                          currentGame.imageUrl,
-                          fit: BoxFit.cover,
-                          height: 300,
-                          width: double.infinity,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                height: 300,
-                                color: Colors.grey[900],
-                                child: const Center(
-                                  child: Icon(Icons.broken_image, size: 60),
+                        GestureDetector(
+                          onTap: () => _showFullscreenImage(context, currentGame.imageUrl),
+                          child: Image.network(
+                            currentGame.imageUrl,
+                            fit: BoxFit.cover,
+                            height: 300,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  height: 300,
+                                  color: Colors.grey[300],
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.broken_image, 
+                                      size: 60,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
                                 ),
-                              ),
+                          ),
                         ),
-                        Container(
-                          height: 300,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              stops: const [0, 0.7, 1.0],
-                              colors: [
-                                Colors.transparent,
-                                Theme.of(
-                                  context,
-                                ).scaffoldBackgroundColor.withAlpha(204),
-                                Theme.of(context).scaffoldBackgroundColor,
-                              ],
+                        IgnorePointer(
+                          child: Container(
+                            height: 300,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                stops: const [0, 0.8, 1.0],
+                                colors: [
+                                  Colors.transparent,
+                                  Theme.of(
+                                    context,
+                                  ).scaffoldBackgroundColor.withAlpha(153),
+                                  Theme.of(context).scaffoldBackgroundColor,
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -400,6 +407,44 @@ class _GameDetailPageState extends State<GameDetailPage> {
                                     ),
                                   ),
                                 ),
+                                // Personal Rating Display
+                                if (isInLibrary && (currentGame.personalRating != null && currentGame.personalRating! > 0)) ...[
+                                  const SizedBox(width: 12),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).cardColor,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.star_rounded, size: 18, color: Colors.amber),
+                                        const SizedBox(width: 6),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'YOU',
+                                              style: TextStyle(
+                                                fontSize: 8,
+                                                color: Theme.of(context).textTheme.bodySmall?.color,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                            Text(
+                                              currentGame.personalRating!.toStringAsFixed(1),
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                height: 1.0,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           const SizedBox(height: 24),
@@ -1011,19 +1056,18 @@ class _GameDetailPageState extends State<GameDetailPage> {
               Positioned(
                 bottom: 20,
                 right: 20,
-                child: FloatingActionButton.extended(
+                child: FloatingActionButton(
                   onPressed: () => _showAddGameDialog(
                     context,
                     gameManager,
                     currentGame,
                     isInLibrary,
                   ),
-                  icon: Icon(
-                    isInLibrary ? Icons.edit_rounded : Icons.add_rounded,
-                  ),
-                  label: Text(isInLibrary ? 'Update Game' : 'Add to Library'),
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  child: Icon(
+                    isInLibrary ? Icons.edit_rounded : Icons.add_rounded,
+                  ),
                 ),
               ),
             ],
@@ -1106,7 +1150,7 @@ class _GameDetailPageState extends State<GameDetailPage> {
 
   Widget _buildInfoCard(String label, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
@@ -1114,28 +1158,37 @@ class _GameDetailPageState extends State<GameDetailPage> {
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             icon,
             color: Theme.of(context).textTheme.bodyMedium?.color,
-            size: 24,
+            size: 20,
           ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 6),
+          Flexible(
+            child: Text(
+              value,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
             style: Theme.of(
               context,
-            ).textTheme.bodySmall?.copyWith(fontSize: 11),
+            ).textTheme.bodySmall?.copyWith(fontSize: 10),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1148,9 +1201,22 @@ class _GameDetailPageState extends State<GameDetailPage> {
     Game game,
     bool isInLibrary,
   ) {
-    double tempRating = game.platformRating ?? 0;
+    double tempRating = game.personalRating ?? 0;
     String tempStatus = game.status;
+    String? tempPlayedOn = game.playedOnPlatform;
+    
+    // Determine available platforms for "Played On" (Only use game's actual platforms)
+    List<String> availablePlatforms = [];
+    if (game.platform.isNotEmpty) {
+       availablePlatforms = game.platform.split(', ').map((e) => e.trim()).toList();
+    }
 
+    if (availablePlatforms.isEmpty) {
+      availablePlatforms = ['Unknown'];
+    }
+
+    bool isSuccess = false;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1175,22 +1241,32 @@ class _GameDetailPageState extends State<GameDetailPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    isInLibrary ? 'Update ${game.title}' : 'Add to Library',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(fontSize: 24),
+                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isInLibrary ? 'Update ${game.title}' : 'Add to Library',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 24),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Your Rating: ${tempRating.toStringAsFixed(1)}',
+                    'Your Rating: ${tempRating == 0 ? "No Rating" : tempRating.toStringAsFixed(1)}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Slider(
                     value: tempRating,
                     min: 0,
                     max: 10,
-                    divisions: 100,
+                    divisions: 20, // 0.5 steps
                     label: tempRating.toStringAsFixed(1),
                     activeColor: Theme.of(context).colorScheme.primary,
                     onChanged: (newValue) {
@@ -1204,8 +1280,10 @@ class _GameDetailPageState extends State<GameDetailPage> {
                     'Status:',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
+                    runSpacing: 10,
                     children:
                         [
                           'Playing',
@@ -1238,55 +1316,89 @@ class _GameDetailPageState extends State<GameDetailPage> {
                         }).toList(),
                   ),
                   const SizedBox(height: 20),
+                  
+                  // Played On Dropdown
+                  Text(
+                    'Played On:',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String?>(
+                    value: tempPlayedOn != null && availablePlatforms.contains(tempPlayedOn) 
+                        ? tempPlayedOn 
+                        : null,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('None'),
+                      ),
+                      ...availablePlatforms.map((platform) {
+                        return DropdownMenuItem<String?>(
+                          value: platform,
+                          child: Text(platform),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) {
+                      setState(() => tempPlayedOn = val);
+                    },
+                    hint: const Text('Select Platform'),
+                  ),
+
+                  const SizedBox(height: 32),
+                  
                   SizedBox(
                     width: double.infinity,
+                    height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (isInLibrary) {
-                          gameManager.updateGameDetails(
-                            id: game.id,
-                            status: tempStatus,
-                            platformRating: tempRating,
-                          );
-                        } else {
-                          gameManager.addGame(
-                            game.copyWith(platformRating: tempRating),
-                            status: tempStatus,
-                          );
-                        }
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${game.title} ${isInLibrary ? 'updated' : 'added'}!',
-                            ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.primary,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        );
-                      },
+                      onPressed: isSuccess 
+                          ? null 
+                          : () async {
+                              setState(() => isSuccess = true);
+                              
+                              // Visual delay for feedback
+                              await Future.delayed(const Duration(milliseconds: 600));
+                              
+                              if (isInLibrary) {
+                                gameManager.updateGameDetails(
+                                  id: game.id,
+                                  status: tempStatus,
+                                  personalRating: tempRating,
+                                  playedOnPlatform: tempPlayedOn,
+                                );
+                              } else {
+                                gameManager.addGame(
+                                  game.copyWith(
+                                    personalRating: tempRating,
+                                    playedOnPlatform: tempPlayedOn,
+                                  ),
+                                  status: tempStatus,
+                                );
+                              }
+
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(
-                          context,
-                        ).colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: isSuccess 
+                            ? const Color(0xFF10B981) // Success Green
+                            : Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      child: Text(
-                        isInLibrary ? 'Save Changes' : 'Add to Library',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: isSuccess
+                          ? const Icon(Icons.check_circle_outline, size: 32)
+                          : Icon(
+                              isInLibrary ? Icons.check_rounded : Icons.add_rounded,
+                              size: 28,
+                            ),
                     ),
                   ),
                 ],
@@ -1340,34 +1452,34 @@ class _GameDetailPageState extends State<GameDetailPage> {
   void _showFullscreenImage(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         insetPadding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            Center(
-              child: InteractiveViewer(
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: InteractiveViewer(
+            minScale: 1.0,
+            maxScale: 5.0,
+            panEnabled: true,
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: Colors.black,
+              child: Center(
                 child: Image.network(
                   imageUrl,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: Colors.grey[900],
                     child: const Center(
-                      child: Icon(Icons.broken_image, size: 80),
+                      child: Icon(Icons.broken_image, size: 80, color: Colors.white),
                     ),
                   ),
                 ),
               ),
             ),
-            Positioned(
-              top: 40,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 32),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

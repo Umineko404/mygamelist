@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'managers/game_manager.dart';
 import 'managers/theme_manager.dart';
-import 'ui/pages/home_page.dart';
+import 'services/auth_service.dart';
+import 'ui/pages/splash_page.dart';
 import 'ui/theme.dart';
 
 /// Application entry point.
@@ -24,6 +25,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        Provider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => GameManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager()),
       ],
@@ -47,7 +49,7 @@ class MyGameListApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeManager.themeMode,
-          home: const HomePage(),
+          home: const SplashPage(),
         );
       },
     );

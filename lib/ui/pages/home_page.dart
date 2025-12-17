@@ -1,11 +1,16 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/auth_service.dart';
 import '../../managers/theme_manager.dart';
+import '../../managers/game_manager.dart';
 import 'home_page_content.dart';
 import 'discover_page.dart';
 import 'discussions_page.dart';
 import 'profile_page.dart';
+import 'auth_page.dart';
+import 'settings_page.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,28 +19,15 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedIndex = 0;
   late final List<Widget> _pages;
 
-  late AnimationController _animationController;
-  late Animation<double> _animation;
-  bool _isSidebarOpen = false;
-  final bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _animation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    );
-
     _pages = [
       const HomePageContent(),
       const DiscussionsPage(),
@@ -45,55 +37,18 @@ class _HomePageState extends State<HomePage>
   }
 
   @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  void _toggleSidebar() {
-    setState(() {
-      _isSidebarOpen = !_isSidebarOpen;
-    });
-    if (_isSidebarOpen) {
-      _animationController.forward();
-    } else {
-      _animationController.reverse();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
+      key: _scaffoldKey,
+      resizeToAvoidBottomInset: false,
+      drawer: _buildDrawer(),
+      body: Column(
         children: [
-          Column(
-            children: [
-              _buildAppBar(),
-              Expanded(child: _pages[_selectedIndex]),
-              _buildBottomNavBar(),
-            ],
+          _buildAppBar(),
+          Expanded(
+            child: _pages[_selectedIndex],
           ),
-          AnimatedBuilder(
-            animation: _animation,
-            builder: (context, child) {
-              if (_animation.value == 0) {
-                return const SizedBox.shrink();
-              }
-              return GestureDetector(
-                onTap: _toggleSidebar,
-                child: Container(
-                  color: Colors.black.withAlpha((0.5 * 255).round()),
-                ),
-              );
-            },
-          ),
-          SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(-1.0, 0.0),
-              end: Offset.zero,
-            ).animate(_animation),
-            child: _buildSidebar(),
-          ),
+          _buildBottomNavBar(),
         ],
       ),
     );
@@ -115,42 +70,81 @@ class _HomePageState extends State<HomePage>
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: _toggleSidebar,
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: Theme.of(context).dividerColor,
-              child: _isLoggedIn
-                  ? const ClipOval(
-                      child: Image(
-                        image: NetworkImage(
-                          'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-                        ),
-                        fit: BoxFit.cover,
-                        width: 36,
-                        height: 36,
-                      ),
-                    )
-                  : Icon(
-                      Icons.person,
-                      size: 20,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
-                    ),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Theme.of(context).dividerColor,
+                  child: Consumer<GameManager>(
+                    builder: (context, gameManager, _) {
+                      final user = gameManager.userProfile;
+                      return !gameManager.isGuest && user?.avatarUrl != null
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: user!.avatarUrl!,
+                                fit: BoxFit.cover,
+                                width: 36,
+                                height: 36,
+                                placeholder: (_, __) => Container(color: Colors.grey[300]),
+                                errorWidget: (_, __, ___) => Icon(
+                                  Icons.person,
+                                  size: 20,
+                                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              Icons.person,
+                              size: 20,
+                              color: Theme.of(context).textTheme.bodyMedium?.color,
+                            );
+                    },
+                  ),
+                ),
+              ),
             ),
           ),
           const Spacer(),
-          Text(
-            'MGL',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontSize: 28, letterSpacing: 2),
+          Image.asset(
+            'assets/images/logo.png',
+            height: 40,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Text(
+              'MGL',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 28, letterSpacing: 2),
+            ),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () => _showNotifications(context),
-            icon: Icon(
-              Icons.notifications_rounded,
-              color: Theme.of(context).textTheme.bodyMedium?.color,
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Center(
+              child: Consumer<ThemeManager>(
+                builder: (context, themeManager, _) {
+                  final isDark = themeManager.themeMode == ThemeMode.dark;
+                  return IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () async {
+                      // Small delay to allow button ripple to render before heavy theme rebuild
+                      await Future.delayed(const Duration(milliseconds: 50));
+                      themeManager.setThemeMode(
+                        isDark ? ThemeMode.light : ThemeMode.dark,
+                      );
+                    },
+                    icon: Icon(
+                      isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                      size: 24,
+                    ),
+                    tooltip: isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -227,78 +221,140 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _buildSidebar() {
-    return Container(
-      width: 280,
-      color: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1A1A1A)
-          : Colors.white,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4A7FD5),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white.withAlpha(25)
-                        : Colors.black.withAlpha(25),
-                    width: 0.5,
-                  ),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
+  Widget _buildDrawer() {
+    return Consumer<GameManager>(
+      builder: (context, gameManager, _) {
+        final user = gameManager.userProfile;
+        final isGuest = gameManager.isGuest;
+        final theme = Theme.of(context);
+        
+        return Drawer(
+          width: 280,
+          backgroundColor: theme.brightness == Brightness.dark
+              ? const Color(0xFF1A1A1A)
+              : Colors.white,
+          child: SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header (User Profile or Login Prompt)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Color(0xFF009DDB), // Custom Blue
+                        Color(0xFFFCD000), // Custom Yellow
+                        Color(0xFFE71E07), // Custom Red
+                      ],
                     ),
-                    child: const Center(
-                      child: Text(
-                        'MGL',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    border: Border(
+                      bottom: BorderSide(
+                        color: theme.brightness == Brightness.dark
+                            ? Colors.white.withAlpha(25)
+                            : Colors.black.withAlpha(25),
+                        width: 0.5,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Log in',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Avatar
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: !isGuest && user?.avatarUrl != null
+                          ? CachedNetworkImage(
+                             imageUrl: user!.avatarUrl!,
+                             fit: BoxFit.cover,
+                             placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                             errorWidget: (context, url, error) => const Center(child: Icon(Icons.person, size: 30)),
+                            ) 
+                          : const Center(
+                              child: Icon(Icons.person, color: Colors.grey, size: 30),
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      if (isGuest) ...[
+                        const Text(
+                          'Welcome, Guest',
+                          style: TextStyle(
+                            color: Color(0xFF1A1A1A),
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: () {
+                             Navigator.pop(context);
+                             Navigator.push(
+                               context, 
+                               MaterialPageRoute(builder: (_) => const AuthPage()),
+                             );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF1A1A1A)),
+                            foregroundColor: const Color(0xFF1A1A1A),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          child: const Text('Log In / Sign Up'),
+                        ),
+                      ] else ...[
+                        Text(
+                          user?.username ?? 'Gamer',
+                          style: const TextStyle(
+                            color: Color(0xFF1A1A1A),
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          user?.email ?? '',
+                          style: TextStyle(
+                            color: const Color(0xFF1A1A1A).withAlpha(200),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'or create an account',
-                    style: TextStyle(
-                      color: Colors.white.withAlpha(230),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                
+                _buildSidebarItem('Settings', Icons.settings, () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SettingsPage()),
+                  );
+                }),
+                
+                if (!isGuest)
+                  _buildSidebarItem('Log Out', Icons.logout, () async {
+                    Navigator.pop(context);
+                    await context.read<AuthService>().signOut();
+                    if (!context.mounted) return;
+                    // Go back to splash or auth
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AuthPage()),
+                    );
+                  }),
+              ],
             ),
-            _buildSidebarItem('Settings', Icons.settings, () {
-              _toggleSidebar();
-              _showSettingsDialog(context);
-            }),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -325,78 +381,5 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  void _showSettingsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Consumer<ThemeManager>(
-          builder: (context, themeManager, child) {
-            return AlertDialog(
-              backgroundColor: Theme.of(context).cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Text(
-                'Appearance',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Column(
-                    children: [
-                      RadioListTile<ThemeMode>(
-                        title: const Text('System Default'),
-                        value: ThemeMode.system,
-                        groupValue: themeManager.themeMode,
-                        onChanged: (value) => themeManager.setThemeMode(value!),
-                        activeColor: Theme.of(context).colorScheme.primary,
-                      ),
-                      RadioListTile<ThemeMode>(
-                        title: const Text('Light'),
-                        value: ThemeMode.light,
-                        groupValue: themeManager.themeMode,
-                        onChanged: (value) => themeManager.setThemeMode(value!),
-                        activeColor: Theme.of(context).colorScheme.primary,
-                      ),
-                      RadioListTile<ThemeMode>(
-                        title: const Text('Dark'),
-                        value: ThemeMode.dark,
-                        groupValue: themeManager.themeMode,
-                        onChanged: (value) => themeManager.setThemeMode(value!),
-                        activeColor: Theme.of(context).colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Done',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 
-  void _showNotifications(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('No new notifications!'),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
 }

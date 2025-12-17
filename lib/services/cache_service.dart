@@ -75,4 +75,12 @@ class CacheKeys {
   static String yearImage(int year) => 'image_year_$year';
   static String gameList(String params) => 'games_list_$params';
   static String search(String query) => 'search_$query';
+  
+  static String gameSeries(int id) => 'game_series_$id';
+  static String gameDLCs(int id) => 'game_dlcs_$id';
+  static String gameStores(int id) => 'game_stores_$id';
+  static String gameScreenshots(int id) => 'game_screenshots_$id';
+  static String creatorDetails(int id) => 'creator_details_$id';
+  static String creatorGames(int id) => 'creator_games_$id';
+  static String developmentTeam(int id) => 'game_team_$id';
 }

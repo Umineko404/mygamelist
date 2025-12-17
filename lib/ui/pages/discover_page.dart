@@ -385,67 +385,87 @@ class _DiscoverPageState extends State<DiscoverPage> {
       ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          image: game.imageUrl.isNotEmpty
-              ? DecorationImage(
-                  image: NetworkImage(game.imageUrl),
-                  fit: BoxFit.cover,
-                  onError: (exception, stackTrace) {},
-                )
-              : null,
-          color: Colors.grey[800],
+          borderRadius: BorderRadius.circular(12),
+          color: Theme.of(context).cardColor,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(20),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Gradient overlay
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withAlpha(220)],
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(12),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    game.imageUrl.isNotEmpty
+                        ? Image.network(
+                            game.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  color: Colors.grey[800],
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                          )
+                        : Container(
+                            color: Colors.grey[800],
+                            child: const Icon(
+                              Icons.gamepad,
+                              color: Colors.grey,
+                              size: 40,
+                            ),
+                          ),
+                    // Rating badge (Metacritic or RAWG fallback)
+                    if (game.hasRating)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getMetacriticColor(
+                              game.displayRatingValue!,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            game.displayRatingValue.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-            // Rating badge in top right (Metacritic or RAWG fallback)
-            if (game.hasRating)
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getMetacriticColor(game.displayRatingValue!),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    game.displayRatingValue.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            // Title at bottom
-            Positioned(
-              bottom: 12,
-              left: 12,
-              right: 12,
+            Padding(
+              padding: const EdgeInsets.all(10),
               child: Text(
                 game.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  shadows: [Shadow(blurRadius: 2)],
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
               ),
             ),

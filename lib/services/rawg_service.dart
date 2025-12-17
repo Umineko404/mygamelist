@@ -289,6 +289,14 @@ class RawgService {
       queryParameters['ratings_count'] = minRatingsCount.toString();
     }
 
+    // Generate unique cache key based on non-auth parameters
+    final cacheParams = Map.from(queryParameters)..remove('key');
+    final paramsString = cacheParams.entries.map((e) => '${e.key}=${e.value}').join('&');
+    final cacheKey = CacheKeys.gameList(paramsString);
+
+    final cached = _cache.get<List<Game>>(cacheKey);
+    if (cached != null) return cached;
+
     final uri = Uri.parse(
       '${ApiConfig.rawgBaseUrl}/games',
     ).replace(queryParameters: queryParameters);
@@ -298,9 +306,11 @@ class RawgService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> results = data['results'];
-        return _filterMatureContent(
+        final games = _filterMatureContent(
           results.map((json) => Game.fromJson(json)).toList(),
         );
+        _cache.set(cacheKey, games, duration: CacheService.shortCache);
+        return games;
       } else {
         throw Exception('Failed to load games: ${response.statusCode}');
       }
@@ -504,6 +514,10 @@ class RawgService {
   /// Get development team for a specific game
   /// Returns list of creators with their roles
   Future<List<Map<String, dynamic>>> getDevelopmentTeam(int gameId) async {
+    final cacheKey = CacheKeys.developmentTeam(gameId);
+    final cached = _cache.get<List<Map<String, dynamic>>>(cacheKey);
+    if (cached != null) return cached;
+
     final url = Uri.parse(
       '${ApiConfig.rawgBaseUrl}/games/$gameId/development-team?key=${ApiConfig.rawgApiKey}&page_size=40',
     );
@@ -512,7 +526,9 @@ class RawgService {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return List<Map<String, dynamic>>.from(data['results'] ?? []);
+        final result = List<Map<String, dynamic>>.from(data['results'] ?? []);
+        _cache.set(cacheKey, result, duration: CacheService.longCache);
+        return result;
       }
       return [];
     } catch (e) {
@@ -522,6 +538,10 @@ class RawgService {
 
   /// Get games in the same series/franchise
   Future<List<Game>> getGameSeries(int gameId) async {
+    final cacheKey = CacheKeys.gameSeries(gameId);
+    final cached = _cache.get<List<Game>>(cacheKey);
+    if (cached != null) return cached;
+
     final url = Uri.parse(
       '${ApiConfig.rawgBaseUrl}/games/$gameId/game-series?key=${ApiConfig.rawgApiKey}&page_size=10',
     );
@@ -531,9 +551,11 @@ class RawgService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> results = data['results'] ?? [];
-        return _filterMatureContent(
+        final games = _filterMatureContent(
           results.map((json) => Game.fromJson(json)).toList(),
         );
+        _cache.set(cacheKey, games, duration: CacheService.mediumCache);
+        return games;
       }
       return [];
     } catch (e) {
@@ -543,6 +565,10 @@ class RawgService {
 
   /// Get DLCs and editions for a game
   Future<List<Game>> getDLCsAndAdditions(int gameId) async {
+    final cacheKey = CacheKeys.gameDLCs(gameId);
+    final cached = _cache.get<List<Game>>(cacheKey);
+    if (cached != null) return cached;
+
     final url = Uri.parse(
       '${ApiConfig.rawgBaseUrl}/games/$gameId/additions?key=${ApiConfig.rawgApiKey}&page_size=10',
     );
@@ -552,7 +578,9 @@ class RawgService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> results = data['results'] ?? [];
-        return results.map((json) => Game.fromJson(json)).toList();
+        final games = results.map((json) => Game.fromJson(json)).toList();
+        _cache.set(cacheKey, games, duration: CacheService.mediumCache);
+        return games;
       }
       return [];
     } catch (e) {
@@ -562,6 +590,10 @@ class RawgService {
 
   /// Get individual creator details with their full portfolio
   Future<Map<String, dynamic>?> getCreatorDetails(int creatorId) async {
+    final cacheKey = CacheKeys.creatorDetails(creatorId);
+    final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+    if (cached != null) return cached;
+
     final url = Uri.parse(
       '${ApiConfig.rawgBaseUrl}/creators/$creatorId?key=${ApiConfig.rawgApiKey}',
     );
@@ -569,7 +601,9 @@ class RawgService {
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        final data = json.decode(response.body);
+        _cache.set(cacheKey, data as Map<String, dynamic>, duration: CacheService.longCache);
+        return data;
       }
       return null;
     } catch (e) {
@@ -579,6 +613,10 @@ class RawgService {
 
   /// Get stores where a game can be purchased
   Future<List<Map<String, dynamic>>> getGameStores(int gameId) async {
+    final cacheKey = CacheKeys.gameStores(gameId);
+    final cached = _cache.get<List<Map<String, dynamic>>>(cacheKey);
+    if (cached != null) return cached;
+
     // Map store_id to store name
     const storeNames = {
       1: 'Steam',
@@ -603,7 +641,7 @@ class RawgService {
         final data = json.decode(response.body);
         final List<dynamic> results = data['results'] ?? [];
         
-        return results.map((store) {
+        final result = results.map((store) {
           final storeId = store['store_id'] as int?;
           final storeName = storeNames[storeId] ?? 'Store';
           return {
@@ -611,6 +649,9 @@ class RawgService {
             'url': store['url'] ?? '',
           };
         }).toList();
+        _cache.set(cacheKey, result, duration: CacheService.longCache);
+        return result;
+
       }
       return [];
     } catch (e) {
@@ -620,6 +661,10 @@ class RawgService {
 
   /// Get games by a specific creator
   Future<List<Map<String, dynamic>>> getGamesByCreator(int creatorId) async {
+    final cacheKey = CacheKeys.creatorGames(creatorId);
+    final cached = _cache.get<List<Map<String, dynamic>>>(cacheKey);
+    if (cached != null) return cached;
+
     final url = Uri.parse(
       '${ApiConfig.rawgBaseUrl}/games?key=${ApiConfig.rawgApiKey}&creators=$creatorId&page_size=15&ordering=-added',
     );
@@ -638,6 +683,10 @@ class RawgService {
 
   /// Get screenshots for a game from dedicated endpoint
   Future<List<String>> getGameScreenshots(int gameId) async {
+    final cacheKey = CacheKeys.gameScreenshots(gameId);
+    final cached = _cache.get<List<String>>(cacheKey);
+    if (cached != null) return cached;
+
     final url = Uri.parse(
       '${ApiConfig.rawgBaseUrl}/games/$gameId/screenshots?key=${ApiConfig.rawgApiKey}&page_size=10',
     );
@@ -647,10 +696,12 @@ class RawgService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List<dynamic> results = data['results'] ?? [];
-        return results
+        final urls = results
             .map((s) => s['image']?.toString() ?? '')
             .where((url) => url.isNotEmpty)
             .toList();
+        _cache.set(cacheKey, urls, duration: CacheService.longCache);
+        return urls;
       }
       return [];
     } catch (e) {
