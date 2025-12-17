@@ -6,7 +6,9 @@ import 'package:provider/provider.dart';
 import '../../managers/game_manager.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_image_service.dart';
+import '../../services/user_data_service.dart';
 import '../widgets/my_list_tab.dart';
+import 'platform_selection_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,11 +21,31 @@ class ProfilePageState extends State<ProfilePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _selectedListFilter = 'All';
+  int _platformCount = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadPlatformCount();
+  }
+
+  Future<void> _loadPlatformCount() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userDataService = Provider.of<UserDataService>(context, listen: false);
+    
+    if (authService.isAuthenticated && authService.userId != null) {
+      try {
+        final platforms = await userDataService.getUserPlatforms(authService.userId!);
+        if (mounted) {
+          setState(() {
+            _platformCount = platforms.length;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error loading platform count: $e');
+      }
+    }
   }
 
   @override
@@ -183,9 +205,15 @@ class ProfilePageState extends State<ProfilePage>
               _buildProfileCard(
                 context,
                 'Platforms',
-                '5',
+                _platformCount.toString(),
                 Icons.devices_rounded,
-                () => _showPlatforms(context),
+                () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PlatformSelectionPage()),
+                  );
+                  _loadPlatformCount();
+                },
               ),
               _buildProfileCard(
                 context,
@@ -426,16 +454,6 @@ class ProfilePageState extends State<ProfilePage>
       SnackBar(
         content: Text('Average rating: ${avgRating.toStringAsFixed(1)}/10'),
         backgroundColor: const Color(0xFFF59E0B),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showPlatforms(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('PS5, PS4, Xbox, Switch, PC'),
-        backgroundColor: Colors.blue,
         behavior: SnackBarBehavior.floating,
       ),
     );

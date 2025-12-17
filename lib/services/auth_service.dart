@@ -139,6 +139,16 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sends a password reset email (simple version for settings page).
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  /// Deletes the current user's account.
+  Future<void> deleteAccount() async {
+    await _user?.delete();
+  }
+
   /// Converts Firebase error codes to user-friendly messages.
   String _getErrorMessage(String code) {
     switch (code) {

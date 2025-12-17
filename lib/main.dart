@@ -7,8 +7,8 @@ import 'managers/game_manager.dart';
 import 'managers/theme_manager.dart';
 import 'services/auth_service.dart';
 import 'services/profile_image_service.dart';
-import 'ui/pages/auth_page.dart';
-import 'ui/pages/home_page.dart';
+import 'services/user_data_service.dart';
+import 'ui/pages/splash_page.dart';
 import 'ui/theme.dart';
 
 /// Application entry point.
@@ -31,6 +31,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => GameManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager()),
         ChangeNotifierProvider(create: (_) => ProfileImageService()),
+        ChangeNotifierProvider(create: (_) => UserDataService()),
       ],
       child: const MyGameListApp(),
     ),
@@ -44,15 +45,15 @@ class MyGameListApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<ThemeManager, AuthService>(
-      builder: (context, themeManager, authService, child) {
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
         return MaterialApp(
           title: 'MyGameList',
           debugShowCheckedModeBanner: false,
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeManager.themeMode,
-          home: authService.isAuthenticated ? const HomePage() : const AuthPage(),
+          home: const SplashPage(),
         );
       },
     );

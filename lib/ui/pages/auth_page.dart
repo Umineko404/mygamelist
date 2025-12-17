@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import 'home_page.dart';
 
 /// Authentication page with login and signup tabs.
 class AuthPage extends StatefulWidget {
@@ -120,10 +121,16 @@ class _LoginFormState extends State<_LoginForm> {
     if (!_formKey.currentState!.validate()) return;
 
     final authService = context.read<AuthService>();
-    await authService.signIn(
+    final success = await authService.signIn(
       _emailController.text,
       _passwordController.text,
     );
+
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    }
   }
 
   Future<void> _handleForgotPassword() async {
@@ -326,11 +333,17 @@ class _SignUpFormState extends State<_SignUpForm> {
     if (!_formKey.currentState!.validate()) return;
 
     final authService = context.read<AuthService>();
-    await authService.signUp(
+    final success = await authService.signUp(
       _emailController.text,
       _passwordController.text,
       displayName: _nameController.text.trim(),
     );
+
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    }
   }
 
   @override

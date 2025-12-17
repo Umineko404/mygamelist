@@ -2,13 +2,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../managers/theme_manager.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_image_service.dart';
+import 'auth_page.dart';
 import 'home_page_content.dart';
 import 'discover_page.dart';
 import 'discussions_page.dart';
 import 'profile_page.dart';
+import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -385,12 +386,21 @@ class _HomePageState extends State<HomePage>
             const SizedBox(height: 8),
             _buildSidebarItem('Settings', Icons.settings, () {
               _toggleSidebar();
-              _showSettingsDialog(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsPage()),
+              );
             }),
             Divider(height: 1, color: Theme.of(context).dividerColor),
-            _buildSidebarItem('Sign Out', Icons.logout, () {
+            _buildSidebarItem('Sign Out', Icons.logout, () async {
               _toggleSidebar();
-              context.read<AuthService>().signOut();
+              await context.read<AuthService>().signOut();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AuthPage()),
+                  (route) => false,
+                );
+              }
             }),
             const Spacer(),
             Padding(
@@ -430,70 +440,6 @@ class _HomePageState extends State<HomePage>
           ],
         ),
       ),
-    );
-  }
-
-  void _showSettingsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Consumer<ThemeManager>(
-          builder: (context, themeManager, child) {
-            return AlertDialog(
-              backgroundColor: Theme.of(context).cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Text(
-                'Appearance',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Column(
-                    children: [
-                      RadioListTile<ThemeMode>(
-                        title: const Text('System Default'),
-                        value: ThemeMode.system,
-                        groupValue: themeManager.themeMode,
-                        onChanged: (value) => themeManager.setThemeMode(value!),
-                        activeColor: Theme.of(context).colorScheme.primary,
-                      ),
-                      RadioListTile<ThemeMode>(
-                        title: const Text('Light'),
-                        value: ThemeMode.light,
-                        groupValue: themeManager.themeMode,
-                        onChanged: (value) => themeManager.setThemeMode(value!),
-                        activeColor: Theme.of(context).colorScheme.primary,
-                      ),
-                      RadioListTile<ThemeMode>(
-                        title: const Text('Dark'),
-                        value: ThemeMode.dark,
-                        groupValue: themeManager.themeMode,
-                        onChanged: (value) => themeManager.setThemeMode(value!),
-                        activeColor: Theme.of(context).colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Done',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 
